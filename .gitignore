@@ -1,0 +1,4 @@
+inputs/
+outputs/
+.env
+scripts/transcribe_old.py
