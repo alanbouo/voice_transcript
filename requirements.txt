@@ -1,2 +1,5 @@
 assemblyai==0.42.0
 python-dotenv>=1.0.0
+fastapi
+uvicorn
+python-multipart

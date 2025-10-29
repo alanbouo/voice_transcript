@@ -5,3 +5,6 @@ outputs/
 .venv/
 scripts/__pycache__/*
 utils/__pycache__/*
+api/__pycache__/*
+test_upload.sh
+.DS_Store

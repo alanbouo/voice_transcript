@@ -1,33 +1,33 @@
 # 🎙️ VOICE_TRANSCRIPT
 
-Transcription automatique de mémos vocaux (format `.m4a`, `.mp3`, etc.) avec reconnaissance des locuteurs, conversion audio optimisée, et export au format `.txt` et `.json`.
+Automatic voice memo transcription pipeline with speaker diarization, audio conversion, and structured export to `.txt` and `.json` formats.
 
-Fonctionne avec l'API AssemblyAI, en ligne de commande.
-
----
-
-## 🚀 Fonctionnalités
-
-- 🔄 Conversion des fichiers `.m4a` vers `.mp3` mono 16 kHz avec compression personnalisée
-- ☁️ Upload vers AssemblyAI et transcription en français avec détection des locuteurs (Speaker A, B...)
-- 📝 Export du résultat en :
-  - `outputs/xxx.json` (transcription structurée horodatée)
-  - `outputs/xxx.txt` (transcription lisible par speaker)
-- 📊 Barre de progression pour la transcription
+Powered by AssemblyAI’s transcription API, run via command line.
 
 ---
 
-## 🧰 Pré-requis
+## 🚀 Features
+
+- 🔄 Converts `.m4a` audio files to `.mp3` mono 16 kHz with adjustable compression
+- ☁️ Uploads audio to AssemblyAI and transcribes in French with speaker labeling
+- 📝 Exports results as:
+  - `outputs/xxx.json` (structured transcript with timestamps)
+  - `outputs/xxx.txt` (readable speaker-separated transcript)
+- 📊 Progress bar during transcription
+
+---
+
+## 🧰 Requirements
 
 - Python ≥ 3.9
-- Un compte gratuit chez [AssemblyAI](https://www.assemblyai.com/) avec une clé API
-- `ffmpeg` installé (`brew install ffmpeg` sur macOS, `apt install ffmpeg` sur Linux)
+- An [AssemblyAI account](https://www.assemblyai.com/) with an API key
+- `ffmpeg` installed (`brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux)
 
 ---
 
 ## 📦 Installation
 
-1. Clone du repo ou copie locale du projet :
+1. Clone the repo or download the project folder:
 
 ```bash
 cd VOICE_TRANSCRIPT
@@ -36,7 +36,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Ajoute ta clé API dans un fichier `.env` :
+2. Add your API key in a `.env` file:
 
 ```dotenv
 AAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxx
@@ -44,69 +44,69 @@ AAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxx
 
 ---
 
-## ▶️ Utilisation
+## ▶️ Usage
 
-Dépose un fichier audio dans `inputs/`, par exemple `inputs/mon_memo.m4a`, puis exécute :
-
-```bash
-python scripts/main.py mon_memo.m4a
-```
-
-### Qualité personnalisée
-
-Tu peux spécifier une qualité audio avec un deuxième argument :
+Drop a voice memo in `inputs/`, e.g. `inputs/my_memo.m4a`, then run:
 
 ```bash
-python scripts/main.py mon_memo.m4a low
+python scripts/main.py my_memo.m4a
 ```
 
-| Qualité  | Bitrate utilisé |
-|----------|------------------|
-| `high`   | 128k (défaut)    |
-| `medium` | 96k              |
-| `low`    | 64k              |
+### Optional: Control audio quality
+
+You can specify a compression level with a second argument:
+
+```bash
+python scripts/main.py my_memo.m4a low
+```
+
+| Quality   | Bitrate used |
+|-----------|---------------|
+| `high`    | 128k (default) |
+| `medium`  | 96k            |
+| `low`     | 64k            |
 
 ---
 
-## 📂 Arborescence du projet
+## 📂 Project Structure
 
 ```
 VOICE_TRANSCRIPT/
-├── inputs/                # fichiers source (.m4a)
-├── outputs/               # fichiers générés (json, txt, mp3)
-├── scripts/               # logique principale
-│   ├── main.py            # point d'entrée
-│   ├── convert.py         # conversion audio
-│   ├── transcribe.py      # transcription + diarisation
+├── inputs/                # original audio files (.m4a)
+├── outputs/               # generated files (.json, .txt, .mp3)
+├── scripts/               # main logic
+│   ├── main.py            # entry point
+│   ├── convert.py         # audio conversion
+│   ├── transcribe.py      # transcription + speaker diarization
 │   └── export.py          # export JSON + TXT
-├── utils/                 # fonctions utilitaires (si besoin)
-├── .env                   # clé API
-├── .gitignore             # exclusions Git
-├── requirements.txt       # dépendances
-└── README.md              # ce fichier
+├── utils/                 # utility functions (optional)
+├── .env                   # API key config
+├── .gitignore             # Git exclusions
+├── requirements.txt       # dependencies
+└── README.md              # this file
 ```
 
 ---
 
-## 🧪 Exemple de sortie `.txt`
+## 🧪 Sample `.txt` Output
 
 ```
-Speaker A ▶ Bonjour, je vous appelle au sujet du contrat de maintenance.
-Speaker B ▶ Très bien, pouvez-vous me donner votre numéro de dossier ?
+Speaker A ▶ Hello, I’m calling about the maintenance contract.
+Speaker B ▶ Sure, could you give me your case number?
 ```
 
 ---
 
-## 📌 À venir
+## 📌 Coming Soon
 
-- [ ] Recherche plein texte dans les résultats
-- [ ] Interface graphique légère (Streamlit / Tauri)
+- [ ] Full-text search across transcripts
+- [ ] Lightweight GUI (Streamlit / Tauri)
 
 ---
 
-## 🙌 Crédits
+## 🙌 Credits
 
-Ce projet utilise :
+This project uses:
 - [`assemblyai`](https://pypi.org/project/assemblyai/)
 - [`tqdm`](https://github.com/tqdm/tqdm)
-- `ffmpeg` pour la conversion audio
+- `ffmpeg` for audio processing
