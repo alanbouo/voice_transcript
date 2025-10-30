@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./inputs:/app/inputs
+      - ./outputs:/app/outputs
+      - ./.env:/app/.env
+    environment:
+      - AAI_API_KEY=${AAI_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - APP_USER=${APP_USER}
+      - APP_PASS=${APP_PASS}
+      - CORS_ORIGINS=http://localhost:3000
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend

@@ -2,30 +2,49 @@
 from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-# api/app.py
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
+
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.orm import Session
 from pathlib import Path
-import shutil, uuid, os, jwt, datetime
+import shutil, uuid, os
 from dotenv import load_dotenv
-from scripts.convert import convert_to_mp3
+
+from utils.convert import convert_to_mp3
 from scripts.transcribe import transcribe_audio
 from scripts.export import save_transcript_json, save_transcript_txt
-import secrets
+from api.database import init_db, get_db, User
+from api.auth import (
+    verify_password, 
+    get_password_hash, 
+    create_access_token, 
+    create_refresh_token,
+    decode_token
+)
 
 load_dotenv()
 
-app = FastAPI()
+# Initialize database
+init_db()
+
+app = FastAPI(title="Voice Transcript API", version="1.0.0")
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# Directories
 INPUT_DIR = Path("inputs")
 OUTPUT_DIR = Path("outputs")
 INPUT_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
-
-SECRET_KEY = os.getenv("JWT_SECRET", "supersecret")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10
-REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 
@@ -35,35 +54,103 @@ QUALITY_PRESETS = {
     "low": "64k"
 }
 
+# Pydantic models
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr | None = None
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str | None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+# In-memory refresh token store (consider Redis for production)
 refresh_tokens_db = {}
 
-def create_token(data: dict, expires_delta: datetime.timedelta):
-    to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def authenticate_token(token: str = Depends(oauth2_scheme)):
+    """Validate JWT token and return username"""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload.get("sub")
-    except jwt.PyJWTError:
+        payload = decode_token(token)
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return username
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
+def get_user_by_username(db: Session, username: str):
+    """Get user from database by username"""
+    return db.query(User).filter(User.username == username).first()
+
+@app.post("/register")
+async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+    """Register a new user"""
+    # Check if username already exists
+    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+    
+    # Check if email already exists
+    if user_data.email:
+        existing_email = db.query(User).filter(User.email == user_data.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hashed_password
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return {
+        "message": "User created successfully",
+        "username": new_user.username
+    }
+
+
 @app.post("/token")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    correct_username = os.getenv("APP_USER", "admin")
-    correct_password = os.getenv("APP_PASS", "secret")
-    if form_data.username != correct_username or form_data.password != correct_password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    access_token_expires = datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_token_expires = datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-
-    access_token = create_token({"sub": form_data.username}, access_token_expires)
-    refresh_token = create_token({"sub": form_data.username}, refresh_token_expires)
-    refresh_tokens_db[refresh_token] = form_data.username
-
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Login and get access token"""
+    # Get user from database
+    user = get_user_by_username(db, form_data.username)
+    
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
+        )
+    
+    # Create tokens
+    access_token = create_access_token(user.username)
+    refresh_token = create_refresh_token(user.username)
+    refresh_tokens_db[refresh_token] = user.username
+    
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -72,16 +159,36 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.post("/refresh")
 async def refresh_token_endpoint(refresh_token: str = Form(...)):
+    """Refresh access token using refresh token"""
     try:
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_token(refresh_token)
         username = payload.get("sub")
+        
         if refresh_token not in refresh_tokens_db or refresh_tokens_db[refresh_token] != username:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-        new_access_token = create_token({"sub": username}, datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+        
+        new_access_token = create_access_token(username)
         return {"access_token": new_access_token, "token_type": "bearer"}
-    except jwt.PyJWTError:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@app.get("/me", response_model=UserResponse)
+async def get_current_user(
+    username: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Get current user information"""
+    user = get_user_by_username(db, username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return UserResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        created_at=user.created_at.isoformat()
+    )
 
 @app.post("/transcribe")
 async def transcribe_endpoint(

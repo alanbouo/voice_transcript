@@ -1,19 +1,27 @@
 # 🎙️ VOICE_TRANSCRIPT
 
-Automatic voice memo transcription pipeline with speaker diarization, audio conversion, and structured export to `.txt` and `.json` formats.
+Automatic voice memo transcription service with speaker diarization, modern web interface, and structured export.
 
-Powered by AssemblyAI’s transcription API, run via command line.
+Powered by AssemblyAI's transcription API with FastAPI backend and React frontend.
 
 ---
 
 ## 🚀 Features
 
+### Backend
 - 🔄 Converts `.m4a` audio files to `.mp3` mono 16 kHz with adjustable compression
 - ☁️ Uploads audio to AssemblyAI and transcribes in French with speaker labeling
-- 📝 Exports results as:
-  - `outputs/xxx.json` (structured transcript with timestamps)
-  - `outputs/xxx.txt` (readable speaker-separated transcript)
-- 📊 Progress bar during transcription
+- 📝 Exports results as JSON (structured) and TXT (readable)
+- 🔐 JWT-based authentication with refresh tokens
+- 🌐 RESTful API with CORS support
+
+### Frontend
+- 📤 Drag & drop file upload interface
+- 🎚️ Quality selector (low/medium/high)
+- 📊 Real-time upload progress
+- 📝 Transcript viewer with download options
+- 🎨 Modern, responsive UI with TailwindCSS
+- 🔒 Secure authentication flow
 
 ---
 
@@ -27,63 +35,125 @@ Powered by AssemblyAI’s transcription API, run via command line.
 
 ## 📦 Installation
 
-1. Clone the repo or download the project folder:
+### Quick Start with Docker (Recommended)
 
+1. Clone and configure:
 ```bash
-cd VOICE_TRANSCRIPT
+git clone <your-repo>
+cd voice_transcript
+cp .env.example .env
+# Edit .env and add your AssemblyAI API key
+```
+
+2. Run with Docker Compose:
+```bash
+docker-compose up
+```
+
+Access the app at `http://localhost:3000`
+
+### Manual Installation
+
+#### Backend Setup
+
+1. Install Python dependencies:
+```bash
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-2. Add your API key in a `.env` file:
+2. Install ffmpeg:
+```bash
+# macOS
+brew install ffmpeg
 
-```dotenv
-AAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxx
+# Ubuntu/Debian
+sudo apt install ffmpeg
 ```
+
+3. Configure environment:
+```bash
+cp .env.example .env
+# Edit .env and add your credentials
+```
+
+4. Start the API server:
+```bash
+uvicorn api.app:app --reload
+```
+
+API will be available at `http://localhost:8000`
+
+#### Frontend Setup
+
+1. Install Node.js dependencies:
+```bash
+cd frontend
+npm install
+```
+
+2. Configure environment:
+```bash
+cp .env.example .env
+# Set VITE_API_URL=http://localhost:8000
+```
+
+3. Start development server:
+```bash
+npm run dev
+```
+
+Frontend will be available at `http://localhost:3000`
 
 ---
 
 ## ▶️ Usage
 
-Drop a voice memo in `inputs/`, e.g. `inputs/my_memo.m4a`, then run:
+### Web Interface
+
+1. Open `http://localhost:3000` in your browser
+2. Login with default credentials (admin/secret)
+3. Drag and drop an audio file or click to browse
+4. Select quality and click "Start Transcription"
+5. View and download results
+
+### Command Line (Legacy)
+
+Drop a voice memo in `inputs/` and run:
 
 ```bash
-python scripts/main.py my_memo.m4a
+python scripts/main.py my_memo.m4a [quality]
 ```
 
-### Optional: Control audio quality
-
-You can specify a compression level with a second argument:
-
-```bash
-python scripts/main.py my_memo.m4a low
-```
-
-| Quality   | Bitrate used |
-|-----------|---------------|
-| `high`    | 128k (default) |
-| `medium`  | 96k            |
-| `low`     | 64k            |
+Quality options: `high` (128k), `medium` (96k), `low` (64k)
 
 ---
 
 ## 📂 Project Structure
 
 ```
-VOICE_TRANSCRIPT/
-├── inputs/                # original audio files (.m4a)
-├── outputs/               # generated files (.json, .txt, .mp3)
-├── scripts/               # main logic
-│   ├── main.py            # entry point
-│   ├── convert.py         # audio conversion
-│   ├── transcribe.py      # transcription + speaker diarization
-│   └── export.py          # export JSON + TXT
-├── utils/                 # utility functions (optional)
-├── .env                   # API key config
-├── .gitignore             # Git exclusions
-├── requirements.txt       # dependencies
-└── README.md              # this file
+voice_transcript/
+├── api/                   # FastAPI backend
+│   └── app.py            # API endpoints and auth
+├── frontend/             # React web interface
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── services/     # API client
+│   │   └── utils/        # Auth helpers
+│   └── package.json
+├── scripts/              # Core transcription logic
+│   ├── main.py          # CLI entry point
+│   ├── transcribe.py    # AssemblyAI integration
+│   └── export.py        # Output formatting
+├── utils/               # Audio conversion utilities
+├── inputs/              # Upload directory
+├── outputs/             # Generated transcripts
+├── .env                 # Environment config
+├── requirements.txt     # Python dependencies
+├── Dockerfile           # Backend container
+├── docker-compose.yml   # Full stack orchestration
+└── DEPLOYMENT.md        # Deployment guide
 ```
 
 ---
@@ -97,10 +167,32 @@ Speaker B ▶ Sure, could you give me your case number?
 
 ---
 
-## 📌 Coming Soon
+## 🚀 Deployment
 
-- [ ] Full-text search across transcripts
-- [ ] Lightweight GUI (Streamlit / Tauri)
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions including:
+- Docker deployment
+- VPS/Cloud hosting (AWS, GCP, Azure)
+- Platform services (Netlify, Vercel, Railway, Render)
+- Production configuration
+- Security best practices
+
+## 📱 Mobile App (Coming Soon)
+
+- [ ] iOS native app with Swift/SwiftUI
+- [ ] In-app audio recording
+- [ ] Offline mode support
+- [ ] Push notifications
+
+## 🔒 User Registration
+
+The app now supports **user registration**! When you first access the login page:
+
+1. Click "Don't have an account? Create one"
+2. Enter a username and password (email is optional)
+3. Click "Create Account"
+4. Log in with your new credentials
+
+All passwords are securely hashed with bcrypt, and user data is stored in a local SQLite database.
 
 ---
 

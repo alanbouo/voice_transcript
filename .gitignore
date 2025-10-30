@@ -1,10 +1,44 @@
+# Input/Output directories
 inputs/
 outputs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
 .env
+frontend/.env
+
+# Python
 .venv/
-.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 scripts/__pycache__/*
 utils/__pycache__/*
 api/__pycache__/*
-test_upload.sh
+
+# Node/Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Test files
+test_upload.sh
+
+# Docker
+*.env.local
