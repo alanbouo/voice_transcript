@@ -1,7 +1,21 @@
 import axios from 'axios'
 import { getToken, setToken, getRefreshToken, clearTokens } from '../utils/auth'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// Get API URL from build-time env var, runtime config, or default to /api
+const getApiUrl = () => {
+  // First try build-time environment variable
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== '__VITE_API_URL__') {
+    return import.meta.env.VITE_API_URL
+  }
+  // Then try runtime config
+  if (window.APP_CONFIG?.API_URL && window.APP_CONFIG.API_URL !== '__VITE_API_URL__') {
+    return window.APP_CONFIG.API_URL
+  }
+  // Default to /api for development proxy
+  return '/api'
+}
+
+const API_BASE_URL = getApiUrl()
 
 const api = axios.create({
   baseURL: API_BASE_URL,
