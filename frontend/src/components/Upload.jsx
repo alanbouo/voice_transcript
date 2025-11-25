@@ -78,7 +78,8 @@ function Upload({ onTranscriptComplete }) {
           filename: file.name,
           timestamp: new Date().toISOString(),
           textFile: result.text_file,
-          jsonFile: result.json_file
+          jsonFile: result.json_file,
+          database_id: result.database_id // Include database ID for chat feature
         })
       }
 

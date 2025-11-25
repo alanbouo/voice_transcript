@@ -17,7 +17,7 @@ const getApiUrl = () => {
 
 const API_BASE_URL = getApiUrl()
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_BASE_URL,
 })
 
@@ -44,13 +44,13 @@ api.interceptors.response.use(
         const refreshToken = getRefreshToken()
         const formData = new FormData()
         formData.append('refresh_token', refreshToken)
-        
+
         const response = await axios.post(`${API_BASE_URL}/refresh`, formData)
         const { access_token } = response.data
-        
+
         setToken(access_token)
         originalRequest.headers.Authorization = `Bearer ${access_token}`
-        
+
         return api(originalRequest)
       } catch (refreshError) {
         clearTokens()
@@ -76,7 +76,7 @@ export const login = async (username, password) => {
   const formData = new FormData()
   formData.append('username', username)
   formData.append('password', password)
-  
+
   const response = await axios.post(`${API_BASE_URL}/token`, formData)
   return response.data
 }
@@ -90,7 +90,7 @@ export const transcribeAudio = async (file, quality = 'high', onProgress) => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('quality', quality)
-  
+
   const response = await api.post('/transcribe', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -102,7 +102,7 @@ export const transcribeAudio = async (file, quality = 'high', onProgress) => {
       }
     }
   })
-  
+
   return response.data
 }
 
@@ -115,6 +115,42 @@ export const getTranscript = async (transcriptId, format = 'txt') => {
 
 export const checkHealth = async () => {
   const response = await axios.get(`${API_BASE_URL}/health`)
+  return response.data
+}
+
+// Transcript management
+export const listTranscripts = async () => {
+  const response = await api.get('/transcripts/list')
+  return response.data
+}
+
+// Chat functions
+export const sendChatMessage = async (transcriptId, message) => {
+  const response = await api.post(`/chat/${transcriptId}`, { message })
+  return response.data
+}
+
+export const getChatHistory = async (transcriptId) => {
+  const response = await api.get(`/chat/${transcriptId}/history`)
+  return response.data
+}
+
+export const clearChatHistory = async (transcriptId) => {
+  const response = await api.delete(`/chat/${transcriptId}/history`)
+  return response.data
+}
+
+// Speaker management
+export const getTranscriptUtterances = async (transcriptId) => {
+  const response = await api.get(`/transcripts/${transcriptId}/utterances`)
+  return response.data
+}
+
+export const updateSpeakerMapping = async (transcriptId, originalLabel, displayName) => {
+  const response = await api.put(`/transcripts/${transcriptId}/speakers`, {
+    original_label: originalLabel,
+    display_name: displayName
+  })
   return response.data
 }
 

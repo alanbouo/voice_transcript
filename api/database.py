@@ -1,9 +1,9 @@
 """
 Database models and setup for user management
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 from pathlib import Path
 import os
@@ -41,6 +41,67 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Integer, default=1)
+    
+    # Relationships
+    transcripts = relationship("Transcript", back_populates="user")
+    settings = relationship("UserSettings", back_populates="user", uselist=False)
+
+
+class Transcript(Base):
+    """Transcript model for storing audio transcriptions"""
+    __tablename__ = "transcripts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transcript_id = Column(String, unique=True, index=True, nullable=False)  # e.g., "uid_filename"
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    text_content = Column(Text, nullable=False)  # Full transcript text
+    json_content = Column(Text, nullable=True)  # Full JSON from AssemblyAI
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="transcripts")
+    chat_messages = relationship("ChatMessage", back_populates="transcript", cascade="all, delete-orphan")
+    speaker_mappings = relationship("SpeakerMapping", back_populates="transcript", cascade="all, delete-orphan")
+
+
+class ChatMessage(Base):
+    """Chat message model for AI conversations about transcripts"""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transcript_id = Column(Integer, ForeignKey("transcripts.id"), nullable=False)
+    role = Column(String, nullable=False)  # 'user' or 'assistant'
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    transcript = relationship("Transcript", back_populates="chat_messages")
+
+
+class SpeakerMapping(Base):
+    """Mapping for renaming speakers in a transcript"""
+    __tablename__ = "speaker_mappings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transcript_id = Column(Integer, ForeignKey("transcripts.id"), nullable=False)
+    original_label = Column(String, nullable=False)  # e.g., "A", "B", "Speaker A"
+    display_name = Column(String, nullable=False)    # e.g., "John Doe"
+    
+    # Relationships
+    transcript = relationship("Transcript", back_populates="speaker_mappings")
+
+
+class UserSettings(Base):
+    """User settings for customizing the application"""
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    system_prompt_template = Column(Text, nullable=True)  # Template with {transcript} placeholder
+    
+    # Relationships
+    user = relationship("User", back_populates="settings")
 
 
 def init_db():
