@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from utils.convert import convert_to_mp3
 from scripts.transcribe import transcribe_audio
 from scripts.export import save_transcript_json, save_transcript_txt
-from api.database import init_db, get_db, User
+from api.database import init_db, get_db, User, Transcript, ChatMessage, SpeakerMapping, UserSettings
 from api.auth import (
     verify_password, 
     get_password_hash, 
@@ -24,6 +24,8 @@ from api.auth import (
     create_refresh_token,
     decode_token
 )
+import openai
+import json
 
 load_dotenv()
 
@@ -194,7 +196,8 @@ async def get_current_user(
 async def transcribe_endpoint(
     file: UploadFile = File(...),
     quality: str = Form("high"),
-    user: str = Depends(authenticate_token)
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
 ):
     api_key = os.getenv("AAI_API_KEY")
     if not api_key:
@@ -219,13 +222,66 @@ async def transcribe_endpoint(
         save_transcript_json(job, json_path)
         save_transcript_txt(job, txt_path)
 
+        # Extract full text from transcript
+        transcript_text = job.text if hasattr(job, 'text') else ""
+        if not transcript_text and hasattr(job, 'utterances'):
+            # Fallback: combine utterances
+            transcript_text = "\n".join([f"{utt.speaker}: {utt.text}" for utt in job.utterances])
+        
+        # Save transcript to database
+        db_user = get_user_by_username(db, user)
+        if not db_user:
+            raise HTTPException(
+                status_code=401, 
+                detail="User session expired or invalid. Please log out and log back in."
+            )
+        
+        new_transcript = Transcript(
+            transcript_id=base_name,
+            user_id=db_user.id,
+            filename=file.filename,
+            text_content=transcript_text,
+            json_content=json.dumps(job.json_response) if hasattr(job, 'json_response') else None
+        )
+        db.add(new_transcript)
+        db.commit()
+        db.refresh(new_transcript)
+
         return {
             "id": base_name,
             "text_file": f"/transcripts/{base_name}?format=txt",
-            "json_file": f"/transcripts/{base_name}?format=json"
+            "json_file": f"/transcripts/{base_name}?format=json",
+            "database_id": new_transcript.id
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/transcripts/list")
+async def list_transcripts(
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """List all transcripts for the current user"""
+    db_user = get_user_by_username(db, user)
+    if not db_user:
+        raise HTTPException(
+            status_code=401, 
+            detail="User session expired or invalid. Please log out and log back in."
+        )
+    
+    transcripts = db.query(Transcript).filter(Transcript.user_id == db_user.id).order_by(Transcript.created_at.desc()).all()
+    
+    return [
+        {
+            "id": t.id,
+            "transcript_id": t.transcript_id,
+            "filename": t.filename,
+            "created_at": t.created_at.isoformat(),
+            "preview": t.text_content[:200] + "..." if len(t.text_content) > 200 else t.text_content
+        }
+        for t in transcripts
+    ]
 
 
 @app.get("/transcripts/{transcript_id}")
@@ -235,6 +291,300 @@ def get_transcript(transcript_id: str, format: str = "txt", user: str = Depends(
     if not file_path.exists():
         return JSONResponse(status_code=404, content={"error": "Transcript not found"})
     return FileResponse(file_path)
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    content: str
+    role: str
+    created_at: str
+
+
+class SpeakerUpdate(BaseModel):
+    original_label: str
+    display_name: str
+
+
+class SettingsUpdate(BaseModel):
+    system_prompt_template: str | None = None
+
+
+@app.get("/settings")
+async def get_settings(
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Get user settings"""
+    db_user = get_user_by_username(db, user)
+    if not db_user.settings:
+        # Return defaults if no settings exist
+        return {"system_prompt_template": None}
+    
+    return {
+        "system_prompt_template": db_user.settings.system_prompt_template
+    }
+
+
+@app.put("/settings")
+async def update_settings(
+    settings: SettingsUpdate,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Update user settings"""
+    db_user = get_user_by_username(db, user)
+    
+    if not db_user.settings:
+        user_settings = UserSettings(user_id=db_user.id)
+        db.add(user_settings)
+        db_user.settings = user_settings
+    
+    db_user.settings.system_prompt_template = settings.system_prompt_template
+    db.commit()
+    
+    return {"status": "success", "settings": settings}
+
+
+@app.get("/transcripts/{transcript_id}/utterances")
+async def get_transcript_utterances(
+    transcript_id: int,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Get utterances and speaker mappings for a transcript"""
+    # Verify transcript belongs to user
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Get speaker mappings
+    mappings = {m.original_label: m.display_name for m in transcript.speaker_mappings}
+    
+    # Parse JSON content
+    utterances = []
+    if transcript.json_content:
+        try:
+            data = json.loads(transcript.json_content)
+            if 'utterances' in data and data['utterances']:
+                utterances = data['utterances']
+        except json.JSONDecodeError:
+            pass
+            
+    return {
+        "utterances": utterances,
+        "speakers": mappings
+    }
+
+
+@app.put("/transcripts/{transcript_id}/speakers")
+async def update_speaker_mapping(
+    transcript_id: int,
+    speaker_update: SpeakerUpdate,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Update speaker name mapping"""
+    # Verify transcript belongs to user
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Check if mapping exists
+    mapping = db.query(SpeakerMapping).filter(
+        SpeakerMapping.transcript_id == transcript_id,
+        SpeakerMapping.original_label == speaker_update.original_label
+    ).first()
+    
+    if mapping:
+        mapping.display_name = speaker_update.display_name
+    else:
+        mapping = SpeakerMapping(
+            transcript_id=transcript_id,
+            original_label=speaker_update.original_label,
+            display_name=speaker_update.display_name
+        )
+        db.add(mapping)
+        
+    db.commit()
+    
+    return {"status": "success", "display_name": speaker_update.display_name}
+
+
+@app.post("/chat/{transcript_id}", response_model=ChatResponse)
+async def chat_with_transcript(
+    transcript_id: int,
+    chat_request: ChatRequest,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Send a chat message and get AI response about the transcript"""
+    # Get OpenAI API key
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY not configured. Please add it to your environment variables."
+        )
+    
+    # Verify transcript belongs to user
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Save user message
+    user_message = ChatMessage(
+        transcript_id=transcript_id,
+        role="user",
+        content=chat_request.message
+    )
+    db.add(user_message)
+    db.commit()
+    
+    # Get chat history
+    chat_history = db.query(ChatMessage).filter(
+        ChatMessage.transcript_id == transcript_id
+    ).order_by(ChatMessage.created_at).limit(20).all()
+    
+    # Get user settings for custom prompt
+    system_prompt = f"You are a helpful assistant analyzing an audio transcript. Here is the full transcript:\n\n{transcript.text_content}\n\nAnswer questions about this transcript accurately and concisely."
+    
+    if db_user.settings and db_user.settings.system_prompt_template:
+        # Inject transcript into template
+        template = db_user.settings.system_prompt_template
+        # Replace {transcript} placeholder, or append if not present
+        if "{transcript}" in template:
+            system_prompt = template.replace("{transcript}", transcript.text_content)
+        else:
+            system_prompt = f"{template}\n\n[TRANSCRIPT]:\n{transcript.text_content}"
+
+    # Build messages for OpenAI
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
+        }
+    ]
+    
+    # Add chat history (excluding the current message since it's already in the prompt)
+    for msg in chat_history[:-1]:  # Exclude last message (the one we just added)
+        messages.append({
+            "role": msg.role,
+            "content": msg.content
+        })
+    
+    # Add current user message
+    messages.append({
+        "role": "user",
+        "content": chat_request.message
+    })
+    
+    try:
+        # Call OpenAI API
+        client = openai.OpenAI(api_key=openai_api_key)
+        print(f"🤖 Calling OpenAI with {len(messages)} messages...")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Use gpt-4o-mini for cost-effectiveness, or "gpt-4" for better quality
+            messages=messages,
+            max_tokens=1000,
+            temperature=0.7
+        )
+        
+        ai_response = response.choices[0].message.content
+        print(f"✅ OpenAI response: {ai_response[:100]}...")
+        
+        # Save assistant message
+        assistant_message = ChatMessage(
+            transcript_id=transcript_id,
+            role="assistant",
+            content=ai_response or ""  # Ensure we don't save None
+        )
+        db.add(assistant_message)
+        db.commit()
+        db.refresh(assistant_message)
+        
+        return ChatResponse(
+            content=ai_response or "",
+            role="assistant",
+            created_at=assistant_message.created_at.isoformat()
+        )
+        
+    except Exception as e:
+        print(f"❌ OpenAI API error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
+
+
+@app.get("/chat/{transcript_id}/history")
+async def get_chat_history(
+    transcript_id: int,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Get chat history for a transcript"""
+    # Verify transcript belongs to user
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.transcript_id == transcript_id
+    ).order_by(ChatMessage.created_at).all()
+    
+    return [
+        {
+            "id": msg.id,
+            "role": msg.role,
+            "content": msg.content,
+            "created_at": msg.created_at.isoformat()
+        }
+        for msg in messages
+    ]
+
+
+@app.delete("/chat/{transcript_id}/history")
+async def clear_chat_history(
+    transcript_id: int,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Clear chat history for a transcript"""
+    # Verify transcript belongs to user
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Delete all chat messages
+    db.query(ChatMessage).filter(ChatMessage.transcript_id == transcript_id).delete()
+    db.commit()
+    
+    return {"message": "Chat history cleared"}
 
 
 @app.get("/health")
