@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LogOut, Mic } from 'lucide-react'
 import { clearTokens } from '../utils/auth'
 import Upload from './Upload'
@@ -6,10 +7,12 @@ import TranscriptViewer from './TranscriptViewer'
 
 function Dashboard({ setIsAuthenticated }) {
   const [transcripts, setTranscripts] = useState([])
+  const navigate = useNavigate()
 
   const handleLogout = () => {
     clearTokens()
     setIsAuthenticated(false)
+    navigate('/login', { replace: true })
   }
 
   const handleTranscriptComplete = (transcript) => {

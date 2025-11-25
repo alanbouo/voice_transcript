@@ -7,7 +7,8 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, sta
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import Optional
 from sqlalchemy.orm import Session
 from pathlib import Path
 import shutil, uuid, os
@@ -57,17 +58,16 @@ QUALITY_PRESETS = {
 # Pydantic models
 class UserCreate(BaseModel):
     username: str
-    email: EmailStr | None = None
+    email: Optional[EmailStr] = None
     password: str
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     username: str
-    email: str | None
+    email: Optional[str]
     created_at: str
-
-    class Config:
-        from_attributes = True
 
 # In-memory refresh token store (consider Redis for production)
 refresh_tokens_db = {}
@@ -240,3 +240,8 @@ def get_transcript(transcript_id: str, format: str = "txt", user: str = Depends(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

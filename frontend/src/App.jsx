@@ -14,6 +14,17 @@ function App() {
     setLoading(false)
   }, [])
 
+  // Sync authentication state with token changes
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = getToken()
+      setIsAuthenticated(!!token)
+    }
+    
+    window.addEventListener('storage', checkAuth)
+    return () => window.removeEventListener('storage', checkAuth)
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -28,13 +39,13 @@ function App() {
         <Route 
           path="/login" 
           element={
-            isAuthenticated ? <Navigate to="/" /> : <Login setIsAuthenticated={setIsAuthenticated} />
+            isAuthenticated ? <Navigate to="/" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />
           } 
         />
         <Route 
           path="/" 
           element={
-            isAuthenticated ? <Dashboard setIsAuthenticated={setIsAuthenticated} /> : <Navigate to="/login" />
+            isAuthenticated ? <Dashboard setIsAuthenticated={setIsAuthenticated} /> : <Navigate to="/login" replace />
           } 
         />
       </Routes>
