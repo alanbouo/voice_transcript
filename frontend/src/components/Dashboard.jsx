@@ -1,7 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { LogOut, Mic } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LogOut, Mic, Settings } from 'lucide-react'
 import { clearTokens } from '../utils/auth'
 import { listTranscripts } from '../services/api'
@@ -50,6 +48,18 @@ function Dashboard({ setIsAuthenticated }) {
 
   const handleTranscriptComplete = (transcript) => {
     setTranscripts([transcript, ...transcripts])
+  }
+
+  const handleTranscriptDeleted = (transcriptId) => {
+    setTranscripts(transcripts.filter(t => t.database_id !== transcriptId))
+  }
+
+  const handleTranscriptRenamed = (transcriptId, newFilename) => {
+    setTranscripts(transcripts.map(t => 
+      t.database_id === transcriptId 
+        ? { ...t, filename: newFilename }
+        : t
+    ))
   }
 
   return (
@@ -104,7 +114,11 @@ function Dashboard({ setIsAuthenticated }) {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
               </div>
             ) : (
-              <TranscriptViewer transcripts={transcripts} />
+              <TranscriptViewer 
+                transcripts={transcripts}
+                onTranscriptDeleted={handleTranscriptDeleted}
+                onTranscriptRenamed={handleTranscriptRenamed}
+              />
             )}
           </div>
         </div>

@@ -5,13 +5,13 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional
 from sqlalchemy.orm import Session
 from pathlib import Path
-import shutil, uuid, os
+import shutil, uuid, os, re
 from dotenv import load_dotenv
 
 from utils.convert import convert_to_mp3
@@ -222,11 +222,16 @@ async def transcribe_endpoint(
         save_transcript_json(job, json_path)
         save_transcript_txt(job, txt_path)
 
-        # Extract full text from transcript
-        transcript_text = job.text if hasattr(job, 'text') else ""
-        if not transcript_text and hasattr(job, 'utterances'):
-            # Fallback: combine utterances
+        # Extract full text from transcript with speaker labels
+        # Always use utterances format for consistency with speaker mappings
+        if hasattr(job, 'utterances') and job.utterances:
             transcript_text = "\n".join([f"{utt.speaker}: {utt.text}" for utt in job.utterances])
+            # Debug: print first speaker label format
+            if job.utterances:
+                print(f"🔍 First speaker label format: '{job.utterances[0].speaker}'")
+        else:
+            # Fallback to plain text if no utterances
+            transcript_text = job.text if hasattr(job, 'text') else ""
         
         # Save transcript to database
         db_user = get_user_by_username(db, user)
@@ -284,13 +289,122 @@ async def list_transcripts(
     ]
 
 
+class TranscriptUpdate(BaseModel):
+    filename: str
+
+
+@app.patch("/transcripts/{transcript_id}")
+async def rename_transcript(
+    transcript_id: int,
+    update: TranscriptUpdate,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Rename a transcript"""
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    transcript.filename = update.filename
+    db.commit()
+    
+    return {"status": "success", "filename": update.filename}
+
+
+@app.delete("/transcripts/{transcript_id}")
+async def delete_transcript(
+    transcript_id: int,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Delete a transcript and all associated data"""
+    db_user = get_user_by_username(db, user)
+    transcript = db.query(Transcript).filter(
+        Transcript.id == transcript_id,
+        Transcript.user_id == db_user.id
+    ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Delete associated chat messages
+    db.query(ChatMessage).filter(ChatMessage.transcript_id == transcript_id).delete()
+    
+    # Delete speaker mappings
+    db.query(SpeakerMapping).filter(SpeakerMapping.transcript_id == transcript_id).delete()
+    
+    # Delete the transcript
+    db.delete(transcript)
+    db.commit()
+    
+    return {"status": "success", "message": "Transcript deleted"}
+
+
 @app.get("/transcripts/{transcript_id}")
-def get_transcript(transcript_id: str, format: str = "txt", user: str = Depends(authenticate_token)):
-    ext = ".json" if format == "json" else ".txt"
-    file_path = OUTPUT_DIR / f"{transcript_id}{ext}"
-    if not file_path.exists():
-        return JSONResponse(status_code=404, content={"error": "Transcript not found"})
-    return FileResponse(file_path)
+def get_transcript(
+    transcript_id: str, 
+    format: str = "txt", 
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Download transcript with speaker names applied"""
+    # Try to parse as database ID first
+    db_user = get_user_by_username(db, user)
+    transcript = None
+    
+    # Check if it's a numeric ID (database_id)
+    if transcript_id.isdigit():
+        transcript = db.query(Transcript).filter(
+            Transcript.id == int(transcript_id),
+            Transcript.user_id == db_user.id
+        ).first()
+    
+    # If not found, try as transcript_id (filename-based)
+    if not transcript:
+        transcript = db.query(Transcript).filter(
+            Transcript.transcript_id == transcript_id,
+            Transcript.user_id == db_user.id
+        ).first()
+    
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Get speaker mappings
+    speaker_mappings = db.query(SpeakerMapping).filter(
+        SpeakerMapping.transcript_id == transcript.id
+    ).all()
+    
+    if format == "json":
+        # For JSON, parse and replace speaker names in utterances
+        if not transcript.json_content:
+            raise HTTPException(status_code=404, detail="JSON content not found")
+        
+        json_data = json.loads(transcript.json_content)
+        
+        # Apply mappings to utterances if they exist
+        if 'utterances' in json_data:
+            for utt in json_data['utterances']:
+                for mapping in speaker_mappings:
+                    if utt.get('speaker') == mapping.original_label:
+                        utt['speaker'] = mapping.display_name
+        
+        return JSONResponse(content=json_data)
+    else:
+        # For TXT, apply mappings to text content
+        transcript_text = transcript.text_content
+        
+        for mapping in speaker_mappings:
+            # Replace speaker labels at start of lines
+            pattern = re.compile(r'^' + re.escape(mapping.original_label) + r':', flags=re.MULTILINE)
+            transcript_text = pattern.sub(mapping.display_name + ':', transcript_text)
+        
+        # Return as plain text
+        return PlainTextResponse(content=transcript_text)
 
 
 class ChatRequest(BaseModel):
@@ -309,7 +423,7 @@ class SpeakerUpdate(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
-    system_prompt_template: str | None = None
+    system_prompt_template: Optional[str] = None
 
 
 @app.get("/settings")
@@ -463,17 +577,39 @@ async def chat_with_transcript(
         ChatMessage.transcript_id == transcript_id
     ).order_by(ChatMessage.created_at).limit(20).all()
     
+    # Apply speaker mappings to transcript
+    transcript_text = transcript.text_content
+    speaker_mappings = db.query(SpeakerMapping).filter(
+        SpeakerMapping.transcript_id == transcript_id
+    ).all()
+    
+    print(f"🔍 Found {len(speaker_mappings)} speaker mappings")
+    for mapping in speaker_mappings:
+        print(f"🔍 Mapping: '{mapping.original_label}' → '{mapping.display_name}'")
+        # Replace original speaker labels with custom names (only at start of lines with colon)
+        # This ensures we don't replace speaker labels that appear in the text itself
+        pattern = re.compile(r'^' + re.escape(mapping.original_label) + r':', flags=re.MULTILINE)
+        before_count = len(transcript_text)
+        transcript_text = pattern.sub(mapping.display_name + ':', transcript_text)
+        after_count = len(transcript_text)
+        if before_count != after_count:
+            print(f"✅ Replaced '{mapping.original_label}' with '{mapping.display_name}'")
+        else:
+            print(f"⚠️  No matches found for pattern '^{mapping.original_label}:'")
+            # Show first 200 chars of transcript for debugging
+            print(f"   First 200 chars: {transcript_text[:200]}")
+    
     # Get user settings for custom prompt
-    system_prompt = f"You are a helpful assistant analyzing an audio transcript. Here is the full transcript:\n\n{transcript.text_content}\n\nAnswer questions about this transcript accurately and concisely."
+    system_prompt = f"You are a helpful assistant analyzing an audio transcript. Here is the full transcript:\n\n{transcript_text}\n\nAnswer questions about this transcript accurately and concisely."
     
     if db_user.settings and db_user.settings.system_prompt_template:
         # Inject transcript into template
         template = db_user.settings.system_prompt_template
         # Replace {transcript} placeholder, or append if not present
         if "{transcript}" in template:
-            system_prompt = template.replace("{transcript}", transcript.text_content)
+            system_prompt = template.replace("{transcript}", transcript_text)
         else:
-            system_prompt = f"{template}\n\n[TRANSCRIPT]:\n{transcript.text_content}"
+            system_prompt = f"{template}\n\n[TRANSCRIPT]:\n{transcript_text}"
 
     # Build messages for OpenAI
     messages = [

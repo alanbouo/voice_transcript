@@ -124,6 +124,16 @@ export const listTranscripts = async () => {
   return response.data
 }
 
+export const renameTranscript = async (transcriptId, filename) => {
+  const response = await api.patch(`/transcripts/${transcriptId}`, { filename })
+  return response.data
+}
+
+export const deleteTranscript = async (transcriptId) => {
+  const response = await api.delete(`/transcripts/${transcriptId}`)
+  return response.data
+}
+
 // Chat functions
 export const sendChatMessage = async (transcriptId, message) => {
   const response = await api.post(`/chat/${transcriptId}`, { message })

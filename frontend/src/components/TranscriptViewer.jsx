@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X } from 'lucide-react'
-import api, { getTranscriptUtterances, updateSpeakerMapping } from '../services/api'
+import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil } from 'lucide-react'
+import api, { getTranscriptUtterances, updateSpeakerMapping, renameTranscript, deleteTranscript } from '../services/api'
 import ChatInterface from './ChatInterface'
 
-function TranscriptViewer({ transcripts }) {
+function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRenamed }) {
   const [selectedTranscript, setSelectedTranscript] = useState(null)
   const [transcriptData, setTranscriptData] = useState({ utterances: [], speakers: {} })
   const [loading, setLoading] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [editingSpeaker, setEditingSpeaker] = useState(null)
   const [editValue, setEditValue] = useState('')
+  const [renamingTranscript, setRenamingTranscript] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [deletingTranscript, setDeletingTranscript] = useState(null)
 
   const handleViewTranscript = async (transcript) => {
     setLoading(true)
@@ -74,6 +77,45 @@ function TranscriptViewer({ transcripts }) {
     return transcriptData.speakers[label] || label
   }
 
+  const startRenaming = (transcript) => {
+    setRenamingTranscript(transcript.database_id)
+    setRenameValue(transcript.filename)
+  }
+
+  const saveRename = async (transcriptId) => {
+    if (!renameValue.trim()) return
+
+    try {
+      await renameTranscript(transcriptId, renameValue)
+      setRenamingTranscript(null)
+      if (onTranscriptRenamed) {
+        onTranscriptRenamed(transcriptId, renameValue)
+      }
+    } catch (error) {
+      console.error('Failed to rename transcript:', error)
+      alert('Failed to rename transcript')
+    }
+  }
+
+  const handleDelete = async (transcriptId) => {
+    if (!window.confirm('Are you sure you want to delete this transcript? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      await deleteTranscript(transcriptId)
+      if (selectedTranscript?.database_id === transcriptId) {
+        setSelectedTranscript(null)
+      }
+      if (onTranscriptDeleted) {
+        onTranscriptDeleted(transcriptId)
+      }
+    } catch (error) {
+      console.error('Failed to delete transcript:', error)
+      alert('Failed to delete transcript')
+    }
+  }
+
   if (transcripts.length === 0) {
     return (
       <div className="card text-center py-12">
@@ -95,13 +137,41 @@ function TranscriptViewer({ transcripts }) {
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  {transcript.filename}
-                </h3>
+                {renamingTranscript === transcript.database_id ? (
+                  <div className="flex items-center gap-2 mb-1">
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveRename(transcript.database_id)
+                        if (e.key === 'Escape') setRenamingTranscript(null)
+                      }}
+                    />
+                    <button
+                      onClick={() => saveRename(transcript.database_id)}
+                      className="p-1 text-green-600 hover:bg-green-50 rounded"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setRenamingTranscript(null)}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <h3 className="font-semibold text-gray-900 mb-1">
+                    {transcript.filename}
+                  </h3>
+                )}
                 <div className="flex items-center text-sm text-gray-500 space-x-2">
                   <Calendar className="w-4 h-4" />
                   <span>
-                    {new Date(transcript.created_at).toLocaleDateString('en-US', {
+                    {new Date(transcript.timestamp).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
@@ -121,6 +191,13 @@ function TranscriptViewer({ transcripts }) {
                   <FileText className="w-5 h-5" />
                 </button>
                 <button
+                  onClick={() => startRenaming(transcript)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Rename transcript"
+                >
+                  <Pencil className="w-5 h-5" />
+                </button>
+                <button
                   onClick={() => handleDownload(transcript, 'txt')}
                   className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Download TXT"
@@ -133,6 +210,13 @@ function TranscriptViewer({ transcripts }) {
                   title="Download JSON"
                 >
                   <FileJson className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(transcript.database_id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete transcript"
+                >
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -152,7 +236,7 @@ function TranscriptViewer({ transcripts }) {
                     {selectedTranscript.filename}
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    {new Date(selectedTranscript.created_at).toLocaleDateString('en-US', {
+                    {new Date(selectedTranscript.timestamp).toLocaleDateString('en-US', {
                       month: 'long',
                       day: 'numeric',
                       year: 'numeric',
