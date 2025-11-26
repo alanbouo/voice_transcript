@@ -230,7 +230,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
       {/* Transcript Modal/Viewer */}
       {selectedTranscript && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[85vh] flex flex-col">
+          <div className="bg-white rounded-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -277,7 +277,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
             {/* Modal Content - Split View */}
             <div className="flex-1 overflow-hidden flex">
               {/* Transcript Content */}
-              <div className={`${showChat ? 'w-1/2' : 'w-full'} p-6 overflow-y-auto border-r border-gray-200 bg-gray-50`}>
+              <div className={`${showChat ? 'w-2/5' : 'w-full'} p-6 overflow-y-auto border-r border-gray-200 bg-gray-50`}>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -351,7 +351,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
 
               {/* Chat Interface */}
               {showChat && (
-                <div className="w-1/2 flex flex-col bg-white">
+                <div className="w-3/5 flex flex-col bg-white">
                   {selectedTranscript.database_id ? (
                     <ChatInterface
                       transcriptId={selectedTranscript.database_id}
