@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle } from 'lucide-react'
+import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle, Search, FileAudio } from 'lucide-react'
 import api, { getTranscriptUtterances, updateSpeakerMapping, renameTranscript, deleteTranscript } from '../services/api'
 import ChatInterface from './ChatInterface'
+
+// Helper to estimate word count from transcript
+const getWordCount = (transcript) => {
+  if (transcript.word_count) return transcript.word_count
+  return null
+}
+
+// Helper to format word count
+const formatWordCount = (count) => {
+  if (!count) return null
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k words`
+  return `${count} words`
+}
 
 function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRenamed }) {
   const [selectedTranscript, setSelectedTranscript] = useState(null)
@@ -13,6 +26,13 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   const [renamingTranscript, setRenamingTranscript] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [hoveredTranscript, setHoveredTranscript] = useState(null)
+
+  // Filter transcripts based on search
+  const filteredTranscripts = transcripts.filter(t =>
+    t.filename.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const handleViewTranscript = async (transcript) => {
     setLoading(true)
@@ -131,12 +151,28 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
 
   return (
     <div className="space-y-4">
+      {/* Search Bar */}
+      {transcripts.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search transcripts..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+          />
+        </div>
+      )}
+
       {/* Transcript List */}
       <div className="space-y-3">
-        {transcripts.map((transcript) => (
+        {filteredTranscripts.map((transcript) => (
           <div
             key={transcript.id}
-            className="card hover:shadow-lg transition-shadow cursor-pointer"
+            className="card hover:shadow-lg transition-all duration-200 cursor-pointer relative group"
+            onMouseEnter={() => setHoveredTranscript(transcript.id)}
+            onMouseLeave={() => setHoveredTranscript(null)}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -171,58 +207,93 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                     {transcript.filename}
                   </h3>
                 )}
-                <div className="flex items-center text-sm text-gray-500 space-x-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    {new Date(transcript.timestamp).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
+                <div className="flex items-center text-sm text-gray-500 space-x-4">
+                  <div className="flex items-center space-x-1.5">
+                    <Calendar className="w-4 h-4" />
+                    <span>
+                      {new Date(transcript.timestamp).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  {transcript.word_count && (
+                    <div className="flex items-center space-x-1.5">
+                      <FileAudio className="w-4 h-4" />
+                      <span>{formatWordCount(transcript.word_count)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleViewTranscript(transcript)}
-                  className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                  title="View transcript"
-                >
-                  <FileText className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => startRenaming(transcript)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Rename transcript"
-                >
-                  <Pencil className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleDownload(transcript, 'txt')}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Download TXT"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleDownload(transcript, 'json')}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Download JSON"
-                >
-                  <FileJson className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleDeleteClick(transcript)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete transcript"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+              <div className="flex space-x-1">
+                <div className="relative group/btn">
+                  <button
+                    onClick={() => handleViewTranscript(transcript)}
+                    className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    <FileText className="w-5 h-5" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    View transcript
+                  </span>
+                </div>
+                <div className="relative group/btn">
+                  <button
+                    onClick={() => startRenaming(transcript)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Rename
+                  </span>
+                </div>
+                <div className="relative group/btn">
+                  <button
+                    onClick={() => handleDownload(transcript, 'txt')}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Download TXT
+                  </span>
+                </div>
+                <div className="relative group/btn">
+                  <button
+                    onClick={() => handleDownload(transcript, 'json')}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <FileJson className="w-5 h-5" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Download JSON
+                  </span>
+                </div>
+                <div className="relative group/btn">
+                  <button
+                    onClick={() => handleDeleteClick(transcript)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    Delete
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Preview on hover */}
+            {hoveredTranscript === transcript.id && transcript.preview && (
+              <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-600 line-clamp-2">
+                {transcript.preview}
+              </div>
+            )}
           </div>
         ))}
       </div>

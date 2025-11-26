@@ -289,7 +289,8 @@ async def list_transcripts(
             "transcript_id": t.transcript_id,
             "filename": t.filename,
             "created_at": t.created_at.isoformat(),
-            "preview": t.text_content[:200] + "..." if len(t.text_content) > 200 else t.text_content
+            "word_count": len(t.text_content.split()) if t.text_content else 0,
+            "preview": t.text_content[:150] + "..." if t.text_content and len(t.text_content) > 150 else (t.text_content or "")
         }
         for t in transcripts
     ]

@@ -29,6 +29,8 @@ function Dashboard({ setIsAuthenticated }) {
         database_id: t.id,
         filename: t.filename,
         timestamp: t.created_at,
+        word_count: t.word_count,
+        preview: t.preview,
         textFile: `/transcripts/${t.transcript_id}?format=txt`,
         jsonFile: `/transcripts/${t.transcript_id}?format=json`
       }))
