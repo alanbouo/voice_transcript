@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Mic, Lock, User, Mail } from 'lucide-react'
+import { Mic, Lock, Mail } from 'lucide-react'
 import { login, register } from '../services/api'
 import { setToken, setRefreshToken } from '../utils/auth'
 
 function Login({ setIsAuthenticated }) {
   const [isRegistering, setIsRegistering] = useState(false)
-  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,7 +33,7 @@ function Login({ setIsAuthenticated }) {
           return
         }
 
-        await register(username, email, password)
+        await register(email, password)
         setSuccess('Account created successfully! Please log in.')
         
         // Switch to login mode after successful registration
@@ -47,7 +46,7 @@ function Login({ setIsAuthenticated }) {
         }, 2000)
       } else {
         // Login flow
-        const data = await login(username, password)
+        const data = await login(email, password)
         setToken(data.access_token)
         setRefreshToken(data.refresh_token)
         setIsAuthenticated(true)
@@ -86,38 +85,20 @@ function Login({ setIsAuthenticated }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Username
+              Email
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="input-field pl-10"
-                placeholder="Enter your username"
+                placeholder="your.email@example.com"
                 required
               />
             </div>
           </div>
-
-          {isRegistering && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email (optional)
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field pl-10"
-                  placeholder="your.email@example.com"
-                />
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

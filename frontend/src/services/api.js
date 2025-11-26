@@ -63,10 +63,9 @@ api.interceptors.response.use(
   }
 )
 
-export const register = async (username, email, password) => {
+export const register = async (email, password) => {
   const response = await axios.post(`${API_BASE_URL}/register`, {
-    username,
-    email: email || null,
+    email,
     password
   })
   return response.data
