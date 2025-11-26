@@ -2,12 +2,25 @@ import { useState, useEffect, useRef } from 'react'
 import { MessageCircle, Send, Trash2, Loader2 } from 'lucide-react'
 import { sendChatMessage, getChatHistory, clearChatHistory, api } from '../services/api'
 
+const thinkingMessages = [
+  "Listening between the lines...",
+  "Decoding the conversation...",
+  "Tuning into the transcript...",
+  "Replaying the highlights...",
+  "Analyzing the audio insights...",
+]
+
+const getRandomThinkingMessage = () => {
+  return thinkingMessages[Math.floor(Math.random() * thinkingMessages.length)]
+}
+
 function ChatInterface({ transcriptId, transcriptPreview }) {
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [defaultPromptSent, setDefaultPromptSent] = useState(false)
+  const [thinkingMessage, setThinkingMessage] = useState('')
   const messagesEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -45,6 +58,7 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
       
       if (defaultPrompt && defaultPrompt.trim()) {
         setDefaultPromptSent(true)
+        setThinkingMessage(getRandomThinkingMessage())
         setLoading(true)
         
         // Add user message
@@ -73,6 +87,7 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
     const userMessage = inputMessage.trim()
     setInputMessage('')
     setError('')
+    setThinkingMessage(getRandomThinkingMessage())
     setLoading(true)
 
     // Add user message optimistically
@@ -172,7 +187,7 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
           <div className="flex justify-start">
             <div className="bg-gray-100 rounded-lg px-4 py-2 flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-primary-600" />
-              <span className="text-sm text-gray-600">AI is thinking...</span>
+              <span className="text-sm text-gray-600">{thinkingMessage}</span>
             </div>
           </div>
         )}
