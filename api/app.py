@@ -239,6 +239,19 @@ async def transcribe_endpoint(
         db.commit()
         db.refresh(new_transcript)
 
+        # Cleanup: delete audio files (transcript is saved in database)
+        try:
+            if input_path.exists():
+                input_path.unlink()
+            if mp3_path.exists():
+                mp3_path.unlink()
+            if json_path.exists():
+                json_path.unlink()
+            if txt_path.exists():
+                txt_path.unlink()
+        except Exception as cleanup_error:
+            print(f"Warning: Failed to cleanup files: {cleanup_error}")
+
         return {
             "id": base_name,
             "text_file": f"/transcripts/{base_name}?format=txt",
@@ -246,6 +259,12 @@ async def transcribe_endpoint(
             "database_id": new_transcript.id
         }
     except Exception as e:
+        # Cleanup on error too
+        try:
+            if input_path.exists():
+                input_path.unlink()
+        except:
+            pass
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload as UploadIcon, FileAudio, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload as UploadIcon, FileAudio, X, CheckCircle, AlertCircle, Plus } from 'lucide-react'
 import { transcribeAudio } from '../services/api'
 
 function Upload({ onTranscriptComplete }) {
@@ -99,14 +99,7 @@ function Upload({ onTranscriptComplete }) {
         })
       }
 
-      // Reset form
-      setTimeout(() => {
-        setFile(null)
-        setProgress(0)
-        setStatus(null)
-        setMessage('')
-        setProgressLabel('')
-      }, 3000)
+      // Don't auto-reset - let user manually start new transcription
     } catch (error) {
       setStatus('error')
       setMessage(error.response?.data?.error || 'Failed to transcribe audio. Please try again.')
@@ -256,13 +249,33 @@ function Upload({ onTranscriptComplete }) {
       )}
 
       {/* Upload Button */}
-      {file && !uploading && (
+      {file && !uploading && status !== 'success' && (
         <button
           onClick={handleUpload}
           disabled={uploading}
           className="w-full btn-primary mt-6"
         >
           Start Transcription
+        </button>
+      )}
+
+      {/* New Transcription Button - shown after success */}
+      {status === 'success' && (
+        <button
+          onClick={() => {
+            setFile(null)
+            setProgress(0)
+            setStatus(null)
+            setMessage('')
+            setProgressLabel('')
+            if (fileInputRef.current) {
+              fileInputRef.current.value = ''
+            }
+          }}
+          className="w-full btn-secondary mt-6 flex items-center justify-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          New Transcription
         </button>
       )}
     </div>

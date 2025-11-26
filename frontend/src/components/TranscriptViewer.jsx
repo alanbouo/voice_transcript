@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil } from 'lucide-react'
+import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle } from 'lucide-react'
 import api, { getTranscriptUtterances, updateSpeakerMapping, renameTranscript, deleteTranscript } from '../services/api'
 import ChatInterface from './ChatInterface'
 
@@ -12,7 +12,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   const [editValue, setEditValue] = useState('')
   const [renamingTranscript, setRenamingTranscript] = useState(null)
   const [renameValue, setRenameValue] = useState('')
-  const [deletingTranscript, setDeletingTranscript] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const handleViewTranscript = async (transcript) => {
     setLoading(true)
@@ -97,22 +97,25 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
     }
   }
 
-  const handleDelete = async (transcriptId) => {
-    if (!window.confirm('Are you sure you want to delete this transcript? This action cannot be undone.')) {
-      return
-    }
+  const handleDeleteClick = (transcript) => {
+    setDeleteConfirm(transcript)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return
 
     try {
-      await deleteTranscript(transcriptId)
-      if (selectedTranscript?.database_id === transcriptId) {
+      await deleteTranscript(deleteConfirm.database_id)
+      if (selectedTranscript?.database_id === deleteConfirm.database_id) {
         setSelectedTranscript(null)
       }
       if (onTranscriptDeleted) {
-        onTranscriptDeleted(transcriptId)
+        onTranscriptDeleted(deleteConfirm.database_id)
       }
+      setDeleteConfirm(null)
     } catch (error) {
       console.error('Failed to delete transcript:', error)
-      alert('Failed to delete transcript')
+      setDeleteConfirm(null)
     }
   }
 
@@ -212,7 +215,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                   <FileJson className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => handleDelete(transcript.database_id)}
+                  onClick={() => handleDeleteClick(transcript)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete transcript"
                 >
@@ -385,6 +388,43 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
               >
                 <FileJson className="w-4 h-4" />
                 <span>Download JSON</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+              Delete Transcript
+            </h3>
+            <p className="text-gray-500 text-center mb-2">
+              Are you sure you want to delete
+            </p>
+            <p className="text-gray-900 font-medium text-center mb-4 truncate">
+              "{deleteConfirm.filename}"?
+            </p>
+            <p className="text-sm text-red-600 text-center mb-6">
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Delete
               </button>
             </div>
           </div>
