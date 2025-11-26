@@ -99,6 +99,7 @@ class UserSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     system_prompt_template = Column(Text, nullable=True)  # Template with {transcript} placeholder
+    default_user_prompt = Column(Text, nullable=True)  # Default first user message
     
     # Relationships
     user = relationship("User", back_populates="settings")

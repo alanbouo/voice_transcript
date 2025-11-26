@@ -424,6 +424,7 @@ class SpeakerUpdate(BaseModel):
 
 class SettingsUpdate(BaseModel):
     system_prompt_template: Optional[str] = None
+    default_user_prompt: Optional[str] = None
 
 
 @app.get("/settings")
@@ -435,10 +436,11 @@ async def get_settings(
     db_user = get_user_by_username(db, user)
     if not db_user.settings:
         # Return defaults if no settings exist
-        return {"system_prompt_template": None}
+        return {"system_prompt_template": None, "default_user_prompt": None}
     
     return {
-        "system_prompt_template": db_user.settings.system_prompt_template
+        "system_prompt_template": db_user.settings.system_prompt_template,
+        "default_user_prompt": db_user.settings.default_user_prompt
     }
 
 
@@ -457,6 +459,7 @@ async def update_settings(
         db_user.settings = user_settings
     
     db_user.settings.system_prompt_template = settings.system_prompt_template
+    db_user.settings.default_user_prompt = settings.default_user_prompt
     db.commit()
     
     return {"status": "success", "settings": settings}

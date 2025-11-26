@@ -3,6 +3,7 @@ import { api } from '../services/api';
 
 const SettingsModal = ({ isOpen, onClose }) => {
     const [systemPrompt, setSystemPrompt] = useState('');
+    const [defaultUserPrompt, setDefaultUserPrompt] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
@@ -18,6 +19,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         try {
             const response = await api.get('/settings');
             setSystemPrompt(response.data.system_prompt_template || '');
+            setDefaultUserPrompt(response.data.default_user_prompt || '');
         } catch (err) {
             console.error('Failed to fetch settings:', err);
             setError('Failed to load settings');
@@ -31,7 +33,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setError(null);
         try {
             await api.put('/settings', {
-                system_prompt_template: systemPrompt || null
+                system_prompt_template: systemPrompt || null,
+                default_user_prompt: defaultUserPrompt || null
             });
             onClose();
         } catch (err) {
@@ -44,6 +47,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
     const handleReset = () => {
         setSystemPrompt('');
+        setDefaultUserPrompt('');
     };
 
     if (!isOpen) return null;
@@ -75,8 +79,25 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <textarea
                         value={systemPrompt}
                         onChange={(e) => setSystemPrompt(e.target.value)}
-                        className="w-full h-48 p-2 border rounded-md font-mono text-sm"
+                        className="w-full h-32 p-2 border rounded-md font-mono text-sm"
                         placeholder="You are a helpful assistant... Here is the transcript: {transcript}"
+                        disabled={loading}
+                    />
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Default User Prompt
+                    </label>
+                    <p className="text-sm text-gray-500 mb-2">
+                        This message will be automatically sent as the first message in every chat.
+                        Leave empty to start with an empty chat.
+                    </p>
+                    <textarea
+                        value={defaultUserPrompt}
+                        onChange={(e) => setDefaultUserPrompt(e.target.value)}
+                        className="w-full h-24 p-2 border rounded-md font-mono text-sm"
+                        placeholder="Summarize the main points of this transcript"
                         disabled={loading}
                     />
                 </div>

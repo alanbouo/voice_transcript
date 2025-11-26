@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { MessageCircle, Send, Trash2, Loader2 } from 'lucide-react'
-import { sendChatMessage, getChatHistory, clearChatHistory } from '../services/api'
+import { sendChatMessage, getChatHistory, clearChatHistory, api } from '../services/api'
 
 function ChatInterface({ transcriptId, transcriptPreview }) {
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [defaultPromptSent, setDefaultPromptSent] = useState(false)
   const messagesEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -15,6 +16,7 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
 
   useEffect(() => {
     loadChatHistory()
+    setDefaultPromptSent(false) // Reset when transcript changes
   }, [transcriptId])
 
   useEffect(() => {
@@ -25,8 +27,42 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
     try {
       const history = await getChatHistory(transcriptId)
       setMessages(history)
+      
+      // If history is empty and we haven't sent default prompt yet, send it
+      if (history.length === 0 && !defaultPromptSent) {
+        await sendDefaultPrompt()
+      }
     } catch (err) {
       console.error('Failed to load chat history:', err)
+    }
+  }
+
+  const sendDefaultPrompt = async () => {
+    try {
+      // Fetch user settings
+      const settingsResponse = await api.get('/settings')
+      const defaultPrompt = settingsResponse.data.default_user_prompt
+      
+      if (defaultPrompt && defaultPrompt.trim()) {
+        setDefaultPromptSent(true)
+        setLoading(true)
+        
+        // Add user message
+        const tempUserMessage = {
+          role: 'user',
+          content: defaultPrompt,
+          created_at: new Date().toISOString()
+        }
+        setMessages([tempUserMessage])
+        
+        // Send to API
+        const response = await sendChatMessage(transcriptId, defaultPrompt)
+        setMessages([tempUserMessage, response])
+        setLoading(false)
+      }
+    } catch (err) {
+      console.error('Failed to send default prompt:', err)
+      setLoading(false)
     }
   }
 
@@ -70,6 +106,9 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
     try {
       await clearChatHistory(transcriptId)
       setMessages([])
+      setDefaultPromptSent(false)
+      // Send default prompt again after clearing
+      await sendDefaultPrompt()
     } catch (err) {
       setError('Failed to clear chat history')
     }

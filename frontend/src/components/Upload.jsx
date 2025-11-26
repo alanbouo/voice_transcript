@@ -10,6 +10,7 @@ function Upload({ onTranscriptComplete }) {
   const [dragActive, setDragActive] = useState(false)
   const [status, setStatus] = useState(null) // 'success' | 'error'
   const [message, setMessage] = useState('')
+  const [progressLabel, setProgressLabel] = useState('')
   const fileInputRef = useRef(null)
 
   const handleDrag = (e) => {
@@ -66,9 +67,24 @@ function Upload({ onTranscriptComplete }) {
     setProgress(0)
     setStatus(null)
     setMessage('')
+    setProgressLabel('Uploading file...')
 
     try {
-      const result = await transcribeAudio(file, quality, setProgress)
+      const result = await transcribeAudio(file, quality, (prog) => {
+        setProgress(prog)
+        // Update label based on progress
+        if (prog < 25) {
+          setProgressLabel('Uploading file...')
+        } else if (prog < 50) {
+          setProgressLabel('Processing audio...')
+        } else if (prog < 75) {
+          setProgressLabel('Transcribing with AI...')
+        } else if (prog < 95) {
+          setProgressLabel('Finalizing transcription...')
+        } else {
+          setProgressLabel('Almost done...')
+        }
+      })
       setStatus('success')
       setMessage('Transcription completed successfully!')
       
@@ -89,6 +105,7 @@ function Upload({ onTranscriptComplete }) {
         setProgress(0)
         setStatus(null)
         setMessage('')
+        setProgressLabel('')
       }, 3000)
     } catch (error) {
       setStatus('error')
@@ -205,15 +222,18 @@ function Upload({ onTranscriptComplete }) {
       {uploading && (
         <div className="mt-6">
           <div className="flex justify-between text-sm font-medium text-gray-700 mb-2">
-            <span>Uploading & Transcribing...</span>
+            <span>{progressLabel}</span>
             <span>{progress}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
             <div
-              className="bg-primary-600 h-2 transition-all duration-300"
+              className="bg-primary-600 h-2.5 transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
+          <p className="text-xs text-gray-500 mt-2">
+            This may take a few minutes depending on file size
+          </p>
         </div>
       )}
 

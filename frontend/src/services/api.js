@@ -91,19 +91,65 @@ export const transcribeAudio = async (file, quality = 'high', onProgress) => {
   formData.append('file', file)
   formData.append('quality', quality)
 
-  const response = await api.post('/transcribe', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-    onUploadProgress: (progressEvent) => {
-      if (onProgress && progressEvent.total) {
-        const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-        onProgress(progress)
-      }
-    }
-  })
+  // Simulate transcription progress after upload
+  let uploadComplete = false
+  let simulationInterval = null
+  let currentProgress = 0
 
-  return response.data
+  const startProgressSimulation = () => {
+    uploadComplete = true
+    currentProgress = 25 // Start from 25% after upload
+    
+    // Gradually increase progress from 25% to 95%
+    simulationInterval = setInterval(() => {
+      if (currentProgress < 95) {
+        // Slower progression as we get higher
+        const increment = currentProgress < 60 ? 2 : currentProgress < 80 ? 1 : 0.5
+        currentProgress = Math.min(95, currentProgress + increment)
+        if (onProgress) {
+          onProgress(Math.round(currentProgress))
+        }
+      }
+    }, 800) // Update every 800ms
+  }
+
+  try {
+    const response = await api.post('/transcribe', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total && !uploadComplete) {
+          // Upload phase: 0-25%
+          const uploadProgress = Math.round((progressEvent.loaded * 25) / progressEvent.total)
+          onProgress(uploadProgress)
+          
+          // Start simulation when upload is complete
+          if (progressEvent.loaded === progressEvent.total) {
+            startProgressSimulation()
+          }
+        }
+      }
+    })
+
+    // Clear simulation interval
+    if (simulationInterval) {
+      clearInterval(simulationInterval)
+    }
+    
+    // Final progress: 100%
+    if (onProgress) {
+      onProgress(100)
+    }
+
+    return response.data
+  } catch (error) {
+    // Clear simulation on error
+    if (simulationInterval) {
+      clearInterval(simulationInterval)
+    }
+    throw error
+  }
 }
 
 export const getTranscript = async (transcriptId, format = 'txt') => {
