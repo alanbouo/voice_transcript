@@ -123,15 +123,14 @@ function Upload({ onTranscriptComplete, defaultQuality = 'medium' }) {
   }
 
   return (
-    <div className="card">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Upload Audio File</h2>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8">
+      {/* Title */}
+      <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Audio File</h2>
 
-      {/* Drag & Drop Area */}
+      {/* File Input Area */}
       <div
-        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-          dragActive
-            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+        className={`relative rounded-lg transition-all ${
+          dragActive ? 'ring-2 ring-blue-500' : ''
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -139,132 +138,123 @@ function Upload({ onTranscriptComplete, defaultQuality = 'medium' }) {
         onDrop={handleDrop}
       >
         {!file ? (
-          <>
-            <UploadIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Drag and drop your audio file here
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">or</p>
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleChange}
+              accept=".m4a,.mp3,.wav,audio/*"
+              className="hidden"
+            />
+            <span className="flex-1 text-gray-400 dark:text-gray-500">
+              Click to select or drag audio file here
+            </span>
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-primary"
+              className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
             >
-              Browse Files
+              Browse
             </button>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-              Supported formats: M4A, MP3, WAV (Max 100MB)
-            </p>
-          </>
+          </div>
         ) : (
-          <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-            <div className="flex items-center space-x-3">
-              <FileAudio className="w-8 h-8 text-primary-600" />
-              <div className="text-left">
-                <p className="font-medium text-gray-900 dark:text-white">{file.name}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
+          <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3">
+            <FileAudio className="w-5 h-5 text-blue-600 mr-3" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {(file.size / 1024 / 1024).toFixed(2)} MB
+              </p>
             </div>
             {!uploading && (
               <button
                 onClick={removeFile}
-                className="text-gray-400 hover:text-red-600 transition-colors"
+                className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             )}
           </div>
         )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          onChange={handleChange}
-          accept=".m4a,.mp3,.wav,audio/*"
-          className="hidden"
-        />
       </div>
 
-      {/* Quality Selector */}
-      {file && !uploading && (
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Transcription Quality
-          </label>
-          <div className="grid grid-cols-3 gap-3">
+      {/* Supported formats hint */}
+      {!file && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          Supported: M4A, MP3, WAV (Max 100MB)
+        </p>
+      )}
+
+      {/* Quality Selector - Compact */}
+      {file && !uploading && status !== 'success' && (
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-sm text-gray-600 dark:text-gray-400">Quality:</span>
+          <div className="flex gap-2">
             {['low', 'medium', 'high'].map((q) => (
               <button
                 key={q}
                 onClick={() => setQuality(q)}
-                className={`py-2 px-4 rounded-lg font-medium transition-all ${
+                className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
                   quality === q
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {q.charAt(0).toUpperCase() + q.slice(1)}
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            {quality === 'high' && '128k bitrate - Best quality'}
-            {quality === 'medium' && '96k bitrate - Balanced'}
-            {quality === 'low' && '64k bitrate - Smaller file size'}
-          </p>
         </div>
       )}
 
       {/* Progress Bar */}
       {uploading && (
-        <div className="mt-6">
-          <div className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <div className="mt-4">
+          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
             <span>{progressLabel}</span>
             <span>{progress}%</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
             <div
-              className="bg-primary-600 h-2.5 transition-all duration-500 ease-out"
+              className="bg-blue-600 h-2 transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            This may take a few minutes depending on file size
-          </p>
         </div>
       )}
 
       {/* Status Message */}
       {status && (
         <div
-          className={`mt-6 flex items-center space-x-2 p-4 rounded-lg ${
+          className={`mt-4 flex items-center gap-2 p-3 rounded-lg text-sm ${
             status === 'success'
-              ? 'bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800'
-              : 'bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
+              ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+              : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300'
           }`}
         >
           {status === 'success' ? (
-            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
           )}
-          <p className="text-sm">{message}</p>
+          <span>{message}</span>
         </div>
       )}
 
-      {/* Upload Button */}
-      {file && !uploading && status !== 'success' && (
+      {/* Main Action Button */}
+      {!uploading && status !== 'success' && (
         <button
-          onClick={handleUpload}
+          onClick={file ? handleUpload : () => fileInputRef.current?.click()}
           disabled={uploading}
-          className="w-full btn-primary mt-6"
+          className="w-full mt-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
-          Start Transcription
+          {file ? 'Get Transcript & Summary' : 'Select Audio File'}
         </button>
       )}
 
-      {/* New Transcription Button - shown after success */}
+      {/* New Transcription Button */}
       {status === 'success' && (
         <button
           onClick={() => {
@@ -277,7 +267,7 @@ function Upload({ onTranscriptComplete, defaultQuality = 'medium' }) {
               fileInputRef.current.value = ''
             }
           }}
-          className="w-full btn-secondary mt-6 flex items-center justify-center gap-2"
+          className="w-full mt-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
         >
           <Plus className="w-5 h-5" />
           New Transcription

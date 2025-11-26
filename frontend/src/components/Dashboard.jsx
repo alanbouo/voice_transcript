@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Mic, Settings, Moon, Sun, User } from 'lucide-react'
+import { Mic, Clock, Settings, HelpCircle, MessageSquare } from 'lucide-react'
 import { clearTokens } from '../utils/auth'
 import { listTranscripts, getCurrentUser, api } from '../services/api'
 import Upload from './Upload'
@@ -13,11 +13,11 @@ function Dashboard({ setIsAuthenticated }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [activeView, setActiveView] = useState('upload') // 'upload' | 'history'
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('darkMode')
       if (saved !== null) return saved === 'true'
-      // Check system preference
       return window.matchMedia('(prefers-color-scheme: dark)').matches
     }
     return false
@@ -122,99 +122,127 @@ function Dashboard({ setIsAuthenticated }) {
     ))
   }
 
+  const NavButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${
+        isActive 
+          ? 'text-blue-600' 
+          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+      }`}
+    >
+      <div className="relative">
+        <Icon className="w-5 h-5" />
+        {badge && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full"></span>
+        )}
+      </div>
+      <span className="text-xs font-medium">{label}</span>
+    </button>
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col transition-colors duration-200">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <Mic className="w-6 h-6 text-white" />
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo & Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
+                <Mic className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Voice Transcript</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Audio transcription dashboard</p>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">Voice Transcript</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Upload audio to get transcript and AI summary</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              {/* User email display */}
-              {userEmail && (
-                <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2">
-                  <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 max-w-[150px] truncate">
-                    {userEmail}
-                  </span>
-                </div>
-              )}
-
-              {/* Dark mode toggle */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-
-              {/* Settings */}
-              <button
+            {/* Navigation */}
+            <nav className="flex items-center gap-1">
+              <NavButton 
+                icon={MessageSquare} 
+                label="Upload" 
+                isActive={activeView === 'upload'}
+                onClick={() => setActiveView('upload')}
+              />
+              <NavButton 
+                icon={Clock} 
+                label="History" 
+                isActive={activeView === 'history'}
+                onClick={() => setActiveView('history')}
+                badge={transcripts.length > 0}
+              />
+              <NavButton 
+                icon={Settings} 
+                label="Settings" 
+                isActive={isSettingsOpen}
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-
-              {/* Logout */}
-              <button
+              />
+              <NavButton 
+                icon={HelpCircle} 
+                label="Help" 
+                isActive={false}
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
+              />
+            </nav>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upload Section */}
-          <div className="animate-fade-in">
+      <main className="flex-1 flex items-start justify-center px-4 py-12">
+        <div className="w-full max-w-2xl">
+          {activeView === 'upload' ? (
             <Upload 
-              onTranscriptComplete={handleTranscriptComplete}
+              onTranscriptComplete={(transcript) => {
+                handleTranscriptComplete(transcript)
+                setActiveView('history')
+              }}
               defaultQuality={userSettings?.default_quality || 'medium'}
             />
-          </div>
-
-          {/* Transcripts Section */}
-          <div className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Recent Transcripts</h2>
-            {loading ? (
-              <div className="card flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-              </div>
-            ) : (
-              <TranscriptViewer 
-                transcripts={transcripts}
-                onTranscriptDeleted={handleTranscriptDeleted}
-                onTranscriptRenamed={handleTranscriptRenamed}
-              />
-            )}
-          </div>
+          ) : (
+            <div className="animate-fade-in">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Transcript History</h2>
+              {loading ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <TranscriptViewer 
+                  transcripts={transcripts}
+                  onTranscriptDeleted={handleTranscriptDeleted}
+                  onTranscriptRenamed={handleTranscriptRenamed}
+                />
+              )}
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-700 dark:text-gray-300">Voice Transcript</span>
+              <span>|</span>
+              <span>© 2025 <a href="https://alanbouo.com" className="text-blue-600 hover:underline">alanbouo.com</a></span>
+            </div>
+            <div className="flex items-center gap-4">
+              <button onClick={handleLogout} className="hover:text-gray-700 dark:hover:text-gray-300">Logout</button>
+              <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">About</a>
+              <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</a>
+            </div>
+          </div>
+        </div>
+      </footer>
 
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSettingsChange={(newSettings) => {
           setUserSettings(newSettings)
-          // Apply theme change immediately
           if (newSettings.theme === 'dark') {
             setDarkMode(true)
           } else if (newSettings.theme === 'light') {
