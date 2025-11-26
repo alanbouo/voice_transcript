@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { api, logout } from '../services/api';
+import { api } from '../services/api';
+import { clearTokens } from '../utils/auth';
 import { Mic, MessageCircle, Monitor, User, Download, Trash2, AlertTriangle, Check, X, Eye, EyeOff } from 'lucide-react';
 
 const TABS = [
@@ -204,7 +205,7 @@ const SettingsModal = ({ isOpen, onClose, onSettingsChange }) => {
     const handleDeleteAccount = async () => {
         try {
             await api.delete('/account');
-            logout();
+            clearTokens();
             window.location.reload();
         } catch (err) {
             setError('Failed to delete account');
