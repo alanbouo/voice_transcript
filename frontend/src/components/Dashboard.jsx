@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Mic, Settings, Moon, Sun, User } from 'lucide-react'
 import { clearTokens } from '../utils/auth'
-import { listTranscripts, getCurrentUser } from '../services/api'
+import { listTranscripts, getCurrentUser, api } from '../services/api'
 import Upload from './Upload'
 import TranscriptViewer from './TranscriptViewer'
 
@@ -15,11 +15,39 @@ function Dashboard({ setIsAuthenticated }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('darkMode') === 'true'
+      const saved = localStorage.getItem('darkMode')
+      if (saved !== null) return saved === 'true'
+      // Check system preference
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
     }
     return false
   })
   const [userEmail, setUserEmail] = useState('')
+  const [userSettings, setUserSettings] = useState(null)
+
+  // Load user settings and apply theme
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await api.get('/settings')
+        setUserSettings(response.data)
+        
+        // Apply theme from settings
+        const theme = response.data.theme
+        if (theme === 'dark') {
+          setDarkMode(true)
+        } else if (theme === 'light') {
+          setDarkMode(false)
+        } else {
+          // System preference
+          setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+      }
+    }
+    loadSettings()
+  }, [])
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -157,7 +185,10 @@ function Dashboard({ setIsAuthenticated }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Upload Section */}
           <div className="animate-fade-in">
-            <Upload onTranscriptComplete={handleTranscriptComplete} />
+            <Upload 
+              onTranscriptComplete={handleTranscriptComplete}
+              defaultQuality={userSettings?.default_quality || 'medium'}
+            />
           </div>
 
           {/* Transcripts Section */}
@@ -181,6 +212,17 @@ function Dashboard({ setIsAuthenticated }) {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        onSettingsChange={(newSettings) => {
+          setUserSettings(newSettings)
+          // Apply theme change immediately
+          if (newSettings.theme === 'dark') {
+            setDarkMode(true)
+          } else if (newSettings.theme === 'light') {
+            setDarkMode(false)
+          } else {
+            setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
+          }
+        }}
       />
     </div>
   )

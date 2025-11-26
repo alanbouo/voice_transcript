@@ -12,6 +12,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from pathlib import Path
 import shutil, uuid, os, re
+from datetime import datetime
 from dotenv import load_dotenv
 
 from utils.convert import convert_to_mp3
@@ -430,8 +431,30 @@ class SpeakerUpdate(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
+    # AI Chat settings
     system_prompt_template: Optional[str] = None
     default_user_prompt: Optional[str] = None
+    ai_model: Optional[str] = None
+    response_length: Optional[str] = None
+    temperature: Optional[str] = None
+    # Transcription settings
+    default_quality: Optional[str] = None
+    default_language: Optional[str] = None
+    speaker_diarization: Optional[bool] = None
+    # Display settings
+    theme: Optional[str] = None
+    date_format: Optional[str] = None
+    font_size: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class EmailChange(BaseModel):
+    new_email: EmailStr
+    password: str
 
 
 @app.get("/settings")
@@ -443,11 +466,32 @@ async def get_settings(
     db_user = get_user_by_email(db, user)
     if not db_user.settings:
         # Return defaults if no settings exist
-        return {"system_prompt_template": None, "default_user_prompt": None}
+        return {
+            "system_prompt_template": None,
+            "default_user_prompt": None,
+            "ai_model": "gpt-4o-mini",
+            "response_length": "medium",
+            "temperature": "0.7",
+            "default_quality": "medium",
+            "default_language": None,
+            "speaker_diarization": True,
+            "theme": "system",
+            "date_format": "us",
+            "font_size": "medium"
+        }
     
     return {
         "system_prompt_template": db_user.settings.system_prompt_template,
-        "default_user_prompt": db_user.settings.default_user_prompt
+        "default_user_prompt": db_user.settings.default_user_prompt,
+        "ai_model": db_user.settings.ai_model or "gpt-4o-mini",
+        "response_length": db_user.settings.response_length or "medium",
+        "temperature": db_user.settings.temperature or "0.7",
+        "default_quality": db_user.settings.default_quality or "medium",
+        "default_language": db_user.settings.default_language,
+        "speaker_diarization": bool(db_user.settings.speaker_diarization) if db_user.settings.speaker_diarization is not None else True,
+        "theme": db_user.settings.theme or "system",
+        "date_format": db_user.settings.date_format or "us",
+        "font_size": db_user.settings.font_size or "medium"
     }
 
 
@@ -465,11 +509,33 @@ async def update_settings(
         db.add(user_settings)
         db_user.settings = user_settings
     
-    db_user.settings.system_prompt_template = settings.system_prompt_template
-    db_user.settings.default_user_prompt = settings.default_user_prompt
+    # Update only provided fields
+    if settings.system_prompt_template is not None:
+        db_user.settings.system_prompt_template = settings.system_prompt_template or None
+    if settings.default_user_prompt is not None:
+        db_user.settings.default_user_prompt = settings.default_user_prompt or None
+    if settings.ai_model is not None:
+        db_user.settings.ai_model = settings.ai_model
+    if settings.response_length is not None:
+        db_user.settings.response_length = settings.response_length
+    if settings.temperature is not None:
+        db_user.settings.temperature = settings.temperature
+    if settings.default_quality is not None:
+        db_user.settings.default_quality = settings.default_quality
+    if settings.default_language is not None:
+        db_user.settings.default_language = settings.default_language or None
+    if settings.speaker_diarization is not None:
+        db_user.settings.speaker_diarization = 1 if settings.speaker_diarization else 0
+    if settings.theme is not None:
+        db_user.settings.theme = settings.theme
+    if settings.date_format is not None:
+        db_user.settings.date_format = settings.date_format
+    if settings.font_size is not None:
+        db_user.settings.font_size = settings.font_size
+    
     db.commit()
     
-    return {"status": "success", "settings": settings}
+    return {"status": "success"}
 
 
 @app.get("/transcripts/{transcript_id}/utterances")
@@ -731,6 +797,147 @@ async def clear_chat_history(
     db.commit()
     
     return {"message": "Chat history cleared"}
+
+
+# ============== Account Management ==============
+
+@app.post("/account/change-password")
+async def change_password(
+    password_data: PasswordChange,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Change user password"""
+    db_user = get_user_by_email(db, user)
+    
+    # Verify current password
+    if not verify_password(password_data.current_password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    # Validate new password
+    if len(password_data.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 6 characters"
+        )
+    
+    # Update password
+    db_user.hashed_password = get_password_hash(password_data.new_password)
+    db.commit()
+    
+    return {"status": "success", "message": "Password changed successfully"}
+
+
+@app.post("/account/change-email")
+async def change_email(
+    email_data: EmailChange,
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Change user email"""
+    db_user = get_user_by_email(db, user)
+    
+    # Verify password
+    if not verify_password(email_data.password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is incorrect"
+        )
+    
+    # Check if new email already exists
+    existing = db.query(User).filter(User.email == email_data.new_email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already in use"
+        )
+    
+    # Update email
+    db_user.email = email_data.new_email
+    db.commit()
+    
+    # Generate new tokens with new email
+    access_token = create_access_token(email_data.new_email)
+    refresh_token = create_refresh_token(email_data.new_email)
+    
+    return {
+        "status": "success",
+        "message": "Email changed successfully",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "new_email": email_data.new_email
+    }
+
+
+@app.get("/account/export")
+async def export_all_data(
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Export all user transcripts as JSON"""
+    import zipfile
+    import io
+    from fastapi.responses import StreamingResponse
+    
+    db_user = get_user_by_email(db, user)
+    transcripts = db.query(Transcript).filter(Transcript.user_id == db_user.id).all()
+    
+    # Create ZIP file in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for transcript in transcripts:
+            # Add text file
+            txt_filename = f"{transcript.filename}.txt"
+            zip_file.writestr(txt_filename, transcript.text_content or "")
+            
+            # Add JSON file if available
+            if transcript.json_content:
+                json_filename = f"{transcript.filename}.json"
+                zip_file.writestr(json_filename, transcript.json_content)
+        
+        # Add metadata file
+        metadata = {
+            "exported_at": datetime.utcnow().isoformat(),
+            "user_email": db_user.email,
+            "total_transcripts": len(transcripts),
+            "transcripts": [
+                {
+                    "id": t.id,
+                    "filename": t.filename,
+                    "created_at": t.created_at.isoformat()
+                }
+                for t in transcripts
+            ]
+        }
+        zip_file.writestr("metadata.json", json.dumps(metadata, indent=2))
+    
+    zip_buffer.seek(0)
+    
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=voice_transcript_export_{datetime.utcnow().strftime('%Y%m%d')}.zip"
+        }
+    )
+
+
+@app.delete("/account")
+async def delete_account(
+    user: str = Depends(authenticate_token),
+    db: Session = Depends(get_db)
+):
+    """Delete user account and all associated data"""
+    db_user = get_user_by_email(db, user)
+    
+    # Delete all user data (cascades will handle related records)
+    db.delete(db_user)
+    db.commit()
+    
+    return {"status": "success", "message": "Account deleted successfully"}
 
 
 @app.get("/health")

@@ -1,25 +1,96 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, logout } from '../services/api';
+import { Mic, MessageCircle, Monitor, User, Download, Trash2, AlertTriangle, Check, X, Eye, EyeOff } from 'lucide-react';
 
-const SettingsModal = ({ isOpen, onClose }) => {
-    const [systemPrompt, setSystemPrompt] = useState('');
-    const [defaultUserPrompt, setDefaultUserPrompt] = useState('');
+const TABS = [
+    { id: 'transcription', label: 'Transcription', icon: Mic },
+    { id: 'ai', label: 'AI Chat', icon: MessageCircle },
+    { id: 'display', label: 'Display', icon: Monitor },
+    { id: 'account', label: 'Account', icon: User },
+];
+
+const LANGUAGES = [
+    { code: '', label: 'Auto-detect' },
+    { code: 'en', label: 'English' },
+    { code: 'fr', label: 'French' },
+    { code: 'es', label: 'Spanish' },
+    { code: 'de', label: 'German' },
+    { code: 'it', label: 'Italian' },
+    { code: 'pt', label: 'Portuguese' },
+    { code: 'nl', label: 'Dutch' },
+    { code: 'ja', label: 'Japanese' },
+    { code: 'zh', label: 'Chinese' },
+    { code: 'ko', label: 'Korean' },
+    { code: 'ar', label: 'Arabic' },
+    { code: 'ru', label: 'Russian' },
+];
+
+const AI_MODELS = [
+    { id: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Affordable)' },
+    { id: 'gpt-4o', label: 'GPT-4o (Best Quality)' },
+    { id: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+];
+
+const SettingsModal = ({ isOpen, onClose, onSettingsChange }) => {
+    const [activeTab, setActiveTab] = useState('transcription');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
+    
+    // Settings state
+    const [settings, setSettings] = useState({
+        // AI Chat
+        system_prompt_template: '',
+        default_user_prompt: '',
+        ai_model: 'gpt-4o-mini',
+        response_length: 'medium',
+        temperature: '0.7',
+        // Transcription
+        default_quality: 'medium',
+        default_language: '',
+        speaker_diarization: true,
+        // Display
+        theme: 'system',
+        date_format: 'us',
+        font_size: 'medium',
+    });
+    
+    // Account state
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPasswords, setShowPasswords] = useState(false);
+    const [newEmail, setNewEmail] = useState('');
+    const [emailPassword, setEmailPassword] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [userEmail, setUserEmail] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             fetchSettings();
+            fetchUserEmail();
         }
     }, [isOpen]);
 
     const fetchSettings = async () => {
         setLoading(true);
+        setError(null);
         try {
             const response = await api.get('/settings');
-            setSystemPrompt(response.data.system_prompt_template || '');
-            setDefaultUserPrompt(response.data.default_user_prompt || '');
+            setSettings({
+                system_prompt_template: response.data.system_prompt_template || '',
+                default_user_prompt: response.data.default_user_prompt || '',
+                ai_model: response.data.ai_model || 'gpt-4o-mini',
+                response_length: response.data.response_length || 'medium',
+                temperature: response.data.temperature || '0.7',
+                default_quality: response.data.default_quality || 'medium',
+                default_language: response.data.default_language || '',
+                speaker_diarization: response.data.speaker_diarization ?? true,
+                theme: response.data.theme || 'system',
+                date_format: response.data.date_format || 'us',
+                font_size: response.data.font_size || 'medium',
+            });
         } catch (err) {
             console.error('Failed to fetch settings:', err);
             setError('Failed to load settings');
@@ -28,15 +99,26 @@ const SettingsModal = ({ isOpen, onClose }) => {
         }
     };
 
+    const fetchUserEmail = async () => {
+        try {
+            const response = await api.get('/me');
+            setUserEmail(response.data.email);
+        } catch (err) {
+            console.error('Failed to fetch user email:', err);
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         setError(null);
+        setSuccess(null);
         try {
-            await api.put('/settings', {
-                system_prompt_template: systemPrompt || null,
-                default_user_prompt: defaultUserPrompt || null
-            });
-            onClose();
+            await api.put('/settings', settings);
+            setSuccess('Settings saved successfully');
+            if (onSettingsChange) {
+                onSettingsChange(settings);
+            }
+            setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
             console.error('Failed to save settings:', err);
             setError('Failed to save settings');
@@ -45,89 +127,530 @@ const SettingsModal = ({ isOpen, onClose }) => {
         }
     };
 
-    const handleReset = () => {
-        setSystemPrompt('');
-        setDefaultUserPrompt('');
+    const handleChangePassword = async () => {
+        if (newPassword !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError('Password must be at least 6 characters');
+            return;
+        }
+        
+        setSaving(true);
+        setError(null);
+        try {
+            await api.post('/account/change-password', {
+                current_password: currentPassword,
+                new_password: newPassword
+            });
+            setSuccess('Password changed successfully');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Failed to change password');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleChangeEmail = async () => {
+        if (!newEmail || !emailPassword) {
+            setError('Please fill in all fields');
+            return;
+        }
+        
+        setSaving(true);
+        setError(null);
+        try {
+            const response = await api.post('/account/change-email', {
+                new_email: newEmail,
+                password: emailPassword
+            });
+            // Update tokens
+            localStorage.setItem('access_token', response.data.access_token);
+            localStorage.setItem('refresh_token', response.data.refresh_token);
+            setUserEmail(response.data.new_email);
+            setSuccess('Email changed successfully');
+            setNewEmail('');
+            setEmailPassword('');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Failed to change email');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleExportData = async () => {
+        try {
+            const response = await api.get('/account/export', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `voice_transcript_export_${new Date().toISOString().split('T')[0]}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setSuccess('Data exported successfully');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError('Failed to export data');
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        try {
+            await api.delete('/account');
+            logout();
+            window.location.reload();
+        } catch (err) {
+            setError('Failed to delete account');
+        }
+    };
+
+    const updateSetting = (key, value) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
     };
 
     if (!isOpen) return null;
 
+    const inputClass = "w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+    const selectClass = "w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+    const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+    const descClass = "text-xs text-gray-500 dark:text-gray-400 mt-1";
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
-                <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+                {/* Header */}
+                <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
-                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                        ✕
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-2xl">
+                        ×
                     </button>
                 </div>
 
+                {/* Tabs */}
+                <div className="flex border-b border-gray-200 dark:border-gray-700 px-6">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === tab.id
+                                    ? 'border-primary-600 text-primary-600'
+                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                            }`}
+                        >
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Messages */}
                 {error && (
-                    <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded mb-4">
+                    <div className="mx-6 mt-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg flex items-center gap-2">
+                        <X className="w-4 h-4" />
                         {error}
                     </div>
                 )}
+                {success && (
+                    <div className="mx-6 mt-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg flex items-center gap-2">
+                        <Check className="w-4 h-4" />
+                        {success}
+                    </div>
+                )}
 
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        System Prompt Template
-                    </label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                        Customize how the AI behaves. Use <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{transcript}'}</code> as a placeholder for the transcript text.
-                        Leave empty to use the default prompt.
-                    </p>
-                    <textarea
-                        value={systemPrompt}
-                        onChange={(e) => setSystemPrompt(e.target.value)}
-                        className="w-full h-32 p-2 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="You are a helpful assistant... Here is the transcript: {transcript}"
-                        disabled={loading}
-                    />
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Transcription Tab */}
+                            {activeTab === 'transcription' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className={labelClass}>Default Quality</label>
+                                        <div className="flex gap-2 mt-2">
+                                            {['low', 'medium', 'high'].map(q => (
+                                                <button
+                                                    key={q}
+                                                    onClick={() => updateSetting('default_quality', q)}
+                                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                        settings.default_quality === q
+                                                            ? 'bg-primary-600 text-white'
+                                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    {q.charAt(0).toUpperCase() + q.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className={descClass}>
+                                            {settings.default_quality === 'high' && '128k bitrate - Best quality'}
+                                            {settings.default_quality === 'medium' && '96k bitrate - Balanced'}
+                                            {settings.default_quality === 'low' && '64k bitrate - Smaller file size'}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Default Language</label>
+                                        <select
+                                            value={settings.default_language}
+                                            onChange={(e) => updateSetting('default_language', e.target.value)}
+                                            className={selectClass}
+                                        >
+                                            {LANGUAGES.map(lang => (
+                                                <option key={lang.code} value={lang.code}>{lang.label}</option>
+                                            ))}
+                                        </select>
+                                        <p className={descClass}>Force a specific language or let the AI auto-detect</p>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Speaker Diarization</label>
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <button
+                                                onClick={() => updateSetting('speaker_diarization', true)}
+                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                    settings.speaker_diarization
+                                                        ? 'bg-primary-600 text-white'
+                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                }`}
+                                            >
+                                                Enabled
+                                            </button>
+                                            <button
+                                                onClick={() => updateSetting('speaker_diarization', false)}
+                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                    !settings.speaker_diarization
+                                                        ? 'bg-primary-600 text-white'
+                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                }`}
+                                            >
+                                                Disabled
+                                            </button>
+                                        </div>
+                                        <p className={descClass}>Identify and label different speakers in the transcript</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* AI Chat Tab */}
+                            {activeTab === 'ai' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className={labelClass}>AI Model</label>
+                                        <select
+                                            value={settings.ai_model}
+                                            onChange={(e) => updateSetting('ai_model', e.target.value)}
+                                            className={selectClass}
+                                        >
+                                            {AI_MODELS.map(model => (
+                                                <option key={model.id} value={model.id}>{model.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Response Length</label>
+                                        <div className="flex gap-2 mt-2">
+                                            {['short', 'medium', 'detailed'].map(len => (
+                                                <button
+                                                    key={len}
+                                                    onClick={() => updateSetting('response_length', len)}
+                                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                        settings.response_length === len
+                                                            ? 'bg-primary-600 text-white'
+                                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    {len.charAt(0).toUpperCase() + len.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Temperature (Creativity): {settings.temperature}</label>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="1"
+                                            step="0.1"
+                                            value={settings.temperature}
+                                            onChange={(e) => updateSetting('temperature', e.target.value)}
+                                            className="w-full mt-2"
+                                        />
+                                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            <span>Precise</span>
+                                            <span>Creative</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>System Prompt Template</label>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                            Use <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{transcript}'}</code> as placeholder
+                                        </p>
+                                        <textarea
+                                            value={settings.system_prompt_template}
+                                            onChange={(e) => updateSetting('system_prompt_template', e.target.value)}
+                                            className={`${inputClass} h-24 font-mono text-sm`}
+                                            placeholder="You are a helpful assistant..."
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Default User Prompt</label>
+                                        <p className={descClass + ' mb-2'}>Sent automatically as first message</p>
+                                        <textarea
+                                            value={settings.default_user_prompt}
+                                            onChange={(e) => updateSetting('default_user_prompt', e.target.value)}
+                                            className={`${inputClass} h-20 font-mono text-sm`}
+                                            placeholder="Summarize the main points..."
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Display Tab */}
+                            {activeTab === 'display' && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className={labelClass}>Theme</label>
+                                        <div className="flex gap-2 mt-2">
+                                            {['light', 'dark', 'system'].map(t => (
+                                                <button
+                                                    key={t}
+                                                    onClick={() => updateSetting('theme', t)}
+                                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                        settings.theme === t
+                                                            ? 'bg-primary-600 text-white'
+                                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Date Format</label>
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={() => updateSetting('date_format', 'us')}
+                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                    settings.date_format === 'us'
+                                                        ? 'bg-primary-600 text-white'
+                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                }`}
+                                            >
+                                                US (MM/DD/YYYY)
+                                            </button>
+                                            <button
+                                                onClick={() => updateSetting('date_format', 'eu')}
+                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                    settings.date_format === 'eu'
+                                                        ? 'bg-primary-600 text-white'
+                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                }`}
+                                            >
+                                                EU (DD/MM/YYYY)
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Transcript Font Size</label>
+                                        <div className="flex gap-2 mt-2">
+                                            {['small', 'medium', 'large'].map(size => (
+                                                <button
+                                                    key={size}
+                                                    onClick={() => updateSetting('font_size', size)}
+                                                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                                        settings.font_size === size
+                                                            ? 'bg-primary-600 text-white'
+                                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    {size.charAt(0).toUpperCase() + size.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Account Tab */}
+                            {activeTab === 'account' && (
+                                <div className="space-y-8">
+                                    {/* Current Email */}
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Current Email</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">{userEmail}</p>
+                                    </div>
+
+                                    {/* Change Password */}
+                                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Change Password</h3>
+                                        <div className="space-y-3">
+                                            <div className="relative">
+                                                <input
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={currentPassword}
+                                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                                    placeholder="Current password"
+                                                    className={inputClass}
+                                                />
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                    placeholder="New password"
+                                                    className={inputClass}
+                                                />
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type={showPasswords ? 'text' : 'password'}
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    placeholder="Confirm new password"
+                                                    className={inputClass}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPasswords(!showPasswords)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                >
+                                                    {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                            <button
+                                                onClick={handleChangePassword}
+                                                disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+                                                className="w-full py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Update Password
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Change Email */}
+                                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Change Email</h3>
+                                        <div className="space-y-3">
+                                            <input
+                                                type="email"
+                                                value={newEmail}
+                                                onChange={(e) => setNewEmail(e.target.value)}
+                                                placeholder="New email address"
+                                                className={inputClass}
+                                            />
+                                            <input
+                                                type="password"
+                                                value={emailPassword}
+                                                onChange={(e) => setEmailPassword(e.target.value)}
+                                                placeholder="Confirm with password"
+                                                className={inputClass}
+                                            />
+                                            <button
+                                                onClick={handleChangeEmail}
+                                                disabled={saving || !newEmail || !emailPassword}
+                                                className="w-full py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Update Email
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Export Data */}
+                                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Export Data</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                            Download all your transcripts as a ZIP file
+                                        </p>
+                                        <button
+                                            onClick={handleExportData}
+                                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            Export All Data
+                                        </button>
+                                    </div>
+
+                                    {/* Delete Account */}
+                                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                                        <h3 className="text-lg font-medium text-red-600 dark:text-red-400 mb-2">Danger Zone</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                            Permanently delete your account and all data. This cannot be undone.
+                                        </p>
+                                        {!showDeleteConfirm ? (
+                                            <button
+                                                onClick={() => setShowDeleteConfirm(true)}
+                                                className="flex items-center gap-2 px-4 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Delete Account
+                                            </button>
+                                        ) : (
+                                            <div className="p-4 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
+                                                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-3">
+                                                    <AlertTriangle className="w-5 h-5" />
+                                                    <span className="font-medium">Are you absolutely sure?</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => setShowDeleteConfirm(false)}
+                                                        className="flex-1 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={handleDeleteAccount}
+                                                        className="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                                    >
+                                                        Yes, Delete Everything
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
 
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Default User Prompt
-                    </label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                        This message will be automatically sent as the first message in every chat.
-                        Leave empty to start with an empty chat.
-                    </p>
-                    <textarea
-                        value={defaultUserPrompt}
-                        onChange={(e) => setDefaultUserPrompt(e.target.value)}
-                        className="w-full h-24 p-2 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Summarize the main points of this transcript"
-                        disabled={loading}
-                    />
-                </div>
-
-                <div className="flex justify-between items-center">
-                    <button
-                        onClick={handleReset}
-                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline"
-                        disabled={loading || saving}
-                    >
-                        Reset to Default
-                    </button>
-
-                    <div className="space-x-2">
+                {/* Footer */}
+                {activeTab !== 'account' && (
+                    <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-                            disabled={saving}
+                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSave}
-                            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
                             disabled={loading || saving}
+                            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                         >
                             {saving ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

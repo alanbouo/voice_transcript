@@ -1,10 +1,15 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload as UploadIcon, FileAudio, X, CheckCircle, AlertCircle, Plus } from 'lucide-react'
 import { transcribeAudio } from '../services/api'
 
-function Upload({ onTranscriptComplete }) {
+function Upload({ onTranscriptComplete, defaultQuality = 'medium' }) {
   const [file, setFile] = useState(null)
-  const [quality, setQuality] = useState('high')
+  const [quality, setQuality] = useState(defaultQuality)
+  
+  // Update quality when defaultQuality prop changes
+  useEffect(() => {
+    setQuality(defaultQuality)
+  }, [defaultQuality])
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [dragActive, setDragActive] = useState(false)

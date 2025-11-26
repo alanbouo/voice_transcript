@@ -97,8 +97,23 @@ class UserSettings(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    
+    # AI Chat settings
     system_prompt_template = Column(Text, nullable=True)  # Template with {transcript} placeholder
     default_user_prompt = Column(Text, nullable=True)  # Default first user message
+    ai_model = Column(String, default="gpt-4o-mini")  # AI model selection
+    response_length = Column(String, default="medium")  # short/medium/detailed
+    temperature = Column(String, default="0.7")  # AI creativity (0-1)
+    
+    # Transcription settings
+    default_quality = Column(String, default="medium")  # low/medium/high
+    default_language = Column(String, nullable=True)  # null = auto-detect
+    speaker_diarization = Column(Integer, default=1)  # 1 = enabled, 0 = disabled
+    
+    # Display settings
+    theme = Column(String, default="system")  # light/dark/system
+    date_format = Column(String, default="us")  # us/eu
+    font_size = Column(String, default="medium")  # small/medium/large
     
     # Relationships
     user = relationship("User", back_populates="settings")
