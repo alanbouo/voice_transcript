@@ -3,7 +3,7 @@ import { Mic, Lock, Mail } from 'lucide-react'
 import { login, register } from '../services/api'
 import { setToken, setRefreshToken } from '../utils/auth'
 
-function Login({ setIsAuthenticated }) {
+function Login({ setIsAuthenticated, setGuestMode }) {
   const [isRegistering, setIsRegistering] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -11,6 +11,10 @@ function Login({ setIsAuthenticated }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const handleGuestMode = () => {
+    setGuestMode(true)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -191,6 +195,28 @@ function Login({ setIsAuthenticated }) {
               }
             </button>
           </div>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">or</span>
+            </div>
+          </div>
+
+          {/* Guest Mode Button */}
+          <button
+            type="button"
+            onClick={handleGuestMode}
+            className="w-full py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Try without an account
+          </button>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            Limited to 5MB files • No history • Default prompts only
+          </p>
         </div>
       </main>
 

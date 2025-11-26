@@ -209,4 +209,73 @@ export const updateSpeakerMapping = async (transcriptId, originalLabel, displayN
   return response.data
 }
 
+// ============== Guest Mode Functions ==============
+
+export const transcribeAudioGuest = async (file, quality = 'medium', onProgress) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('quality', quality)
+
+  let uploadComplete = false
+  let simulationInterval = null
+  let currentProgress = 0
+
+  const startProgressSimulation = () => {
+    uploadComplete = true
+    currentProgress = 25
+    
+    simulationInterval = setInterval(() => {
+      if (currentProgress < 95) {
+        const increment = currentProgress < 60 ? 2 : currentProgress < 80 ? 1 : 0.5
+        currentProgress = Math.min(95, currentProgress + increment)
+        if (onProgress) {
+          onProgress(Math.round(currentProgress))
+        }
+      }
+    }, 800)
+  }
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/transcribe/guest`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total && !uploadComplete) {
+          const uploadProgress = Math.round((progressEvent.loaded * 25) / progressEvent.total)
+          onProgress(uploadProgress)
+          
+          if (progressEvent.loaded === progressEvent.total) {
+            startProgressSimulation()
+          }
+        }
+      }
+    })
+
+    if (simulationInterval) {
+      clearInterval(simulationInterval)
+    }
+    
+    if (onProgress) {
+      onProgress(100)
+    }
+
+    return response.data
+  } catch (error) {
+    if (simulationInterval) {
+      clearInterval(simulationInterval)
+    }
+    throw error
+  }
+}
+
+export const sendChatMessageGuest = async (message, transcriptText) => {
+  const formData = new FormData()
+  formData.append('message', message)
+  formData.append('transcript_text', transcriptText)
+  
+  const response = await axios.post(`${API_BASE_URL}/chat/guest`, formData)
+  return response.data
+}
+
 export default api

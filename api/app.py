@@ -269,6 +269,126 @@ async def transcribe_endpoint(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.post("/transcribe/guest")
+async def transcribe_guest(
+    file: UploadFile = File(...),
+    quality: str = Form("medium")
+):
+    """
+    Guest transcription endpoint - no authentication required.
+    Limitations:
+    - Max file size: 5MB
+    - No history saved
+    - Default prompts only
+    """
+    GUEST_MAX_SIZE = 5 * 1024 * 1024  # 5MB
+    
+    api_key = os.getenv("ASSEMBLYAI_API_KEY")
+    if not api_key:
+        return JSONResponse(status_code=500, content={"error": "API key not configured"})
+
+    if quality not in QUALITY_PRESETS:
+        quality = "medium"
+
+    # Check file size
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    if file_size > GUEST_MAX_SIZE:
+        return JSONResponse(
+            status_code=400, 
+            content={
+                "error": f"File too large for guest mode. Maximum size is 5MB. Please create an account for files up to 100MB.",
+                "upgrade_required": True
+            }
+        )
+
+    # Generate unique ID for this guest transcription
+    unique_id = f"guest_{uuid.uuid4().hex[:12]}"
+    input_path = INPUT_DIR / f"{unique_id}{Path(file.filename).suffix}"
+
+    with open(input_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        base_name = input_path.stem
+        mp3_path = OUTPUT_DIR / f"{base_name}.mp3"
+
+        convert_to_mp3(input_path, mp3_path, bitrate=QUALITY_PRESETS[quality])
+        job = transcribe_audio(str(mp3_path), api_key)
+
+        # Extract transcript text
+        if hasattr(job, 'utterances') and job.utterances:
+            transcript_text = "\n".join([f"{utt.speaker}: {utt.text}" for utt in job.utterances])
+        else:
+            transcript_text = job.text if hasattr(job, 'text') else ""
+
+        # Cleanup files immediately (no persistence for guests)
+        try:
+            if input_path.exists():
+                input_path.unlink()
+            if mp3_path.exists():
+                mp3_path.unlink()
+        except Exception as cleanup_error:
+            print(f"Warning: Failed to cleanup guest files: {cleanup_error}")
+
+        return {
+            "id": base_name,
+            "text": transcript_text,
+            "json_response": job.json_response if hasattr(job, 'json_response') else None,
+            "is_guest": True,
+            "upgrade_message": "Create an account to save transcripts, access history, and customize AI prompts!"
+        }
+    except Exception as e:
+        try:
+            if input_path.exists():
+                input_path.unlink()
+        except:
+            pass
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/chat/guest")
+async def chat_with_transcript_guest(
+    message: str = Form(...),
+    transcript_text: str = Form(...)
+):
+    """
+    Guest chat endpoint - uses default prompts only.
+    Transcript text must be provided since guests have no saved transcripts.
+    """
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        return JSONResponse(status_code=500, content={"error": "OpenAI API key not configured"})
+
+    # Default system prompt for guests
+    system_prompt = "You are a helpful assistant. Here is the transcript: {transcript}"
+    
+    client = openai.OpenAI(api_key=openai_key)
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt.replace("{transcript}", transcript_text)},
+                {"role": "user", "content": message}
+            ],
+            max_tokens=1000,
+            temperature=0.7
+        )
+        
+        ai_response = response.choices[0].message.content
+        
+        return {
+            "response": ai_response,
+            "is_guest": True,
+            "upgrade_message": "Create an account to save chat history and customize AI prompts!"
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/transcripts/list")
 async def list_transcripts(
     user: str = Depends(authenticate_token),

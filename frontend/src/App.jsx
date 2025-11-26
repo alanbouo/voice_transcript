@@ -2,10 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
+import GuestDashboard from './components/GuestDashboard'
 import { getToken } from './utils/auth'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [guestMode, setGuestMode] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,19 +35,28 @@ function App() {
     )
   }
 
+  // Guest mode - show guest dashboard
+  if (guestMode && !isAuthenticated) {
+    return <GuestDashboard setGuestMode={setGuestMode} />
+  }
+
   return (
     <BrowserRouter>
       <Routes>
         <Route 
           path="/login" 
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />
+            isAuthenticated 
+              ? <Navigate to="/" replace /> 
+              : <Login setIsAuthenticated={setIsAuthenticated} setGuestMode={setGuestMode} />
           } 
         />
         <Route 
           path="/" 
           element={
-            isAuthenticated ? <Dashboard setIsAuthenticated={setIsAuthenticated} /> : <Navigate to="/login" replace />
+            isAuthenticated 
+              ? <Dashboard setIsAuthenticated={setIsAuthenticated} /> 
+              : <Navigate to="/login" replace />
           } 
         />
       </Routes>
