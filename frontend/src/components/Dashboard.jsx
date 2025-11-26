@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Mic, Settings } from 'lucide-react'
+import { LogOut, Mic, Settings, Moon, Sun, User } from 'lucide-react'
 import { clearTokens } from '../utils/auth'
-import { listTranscripts } from '../services/api'
+import { listTranscripts, getCurrentUser } from '../services/api'
 import Upload from './Upload'
 import TranscriptViewer from './TranscriptViewer'
 
@@ -13,6 +13,36 @@ function Dashboard({ setIsAuthenticated }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('darkMode') === 'true'
+    }
+    return false
+  })
+  const [userEmail, setUserEmail] = useState('')
+
+  // Apply dark mode class to html element
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    localStorage.setItem('darkMode', darkMode)
+  }, [darkMode])
+
+  // Load user info
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await getCurrentUser()
+        setUserEmail(user.email)
+      } catch (error) {
+        console.error('Failed to load user:', error)
+      }
+    }
+    loadUser()
+  }, [])
 
   // Load transcripts on mount
   useEffect(() => {
@@ -65,9 +95,9 @@ function Dashboard({ setIsAuthenticated }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -75,25 +105,47 @@ function Dashboard({ setIsAuthenticated }) {
                 <Mic className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Voice Transcript</h1>
-                <p className="text-sm text-gray-500">Audio transcription dashboard</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Voice Transcript</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Audio transcription dashboard</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              {/* User email display */}
+              {userEmail && (
+                <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg mr-2">
+                  <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 max-w-[150px] truncate">
+                    {userEmail}
+                  </span>
+                </div>
+              )}
+
+              {/* Dark mode toggle */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
+              {/* Settings */}
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="text-gray-600 hover:text-gray-900"
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 title="Settings"
               >
-                <Settings className="w-6 h-6" />
+                <Settings className="w-5 h-5" />
               </button>
+
+              {/* Logout */}
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Logout</span>
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -104,13 +156,13 @@ function Dashboard({ setIsAuthenticated }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Upload Section */}
-          <div>
+          <div className="animate-fade-in">
             <Upload onTranscriptComplete={handleTranscriptComplete} />
           </div>
 
           {/* Transcripts Section */}
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Recent Transcripts</h2>
+          <div className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Recent Transcripts</h2>
             {loading ? (
               <div className="card flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>

@@ -142,9 +142,9 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   if (transcripts.length === 0) {
     return (
       <div className="card text-center py-12">
-        <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No transcripts yet</h3>
-        <p className="text-gray-500">Upload an audio file to get started</p>
+        <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No transcripts yet</h3>
+        <p className="text-gray-500 dark:text-gray-400">Upload an audio file to get started</p>
       </div>
     )
   }
@@ -154,13 +154,13 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
       {/* Search Bar */}
       {transcripts.length > 0 && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
             placeholder="Search transcripts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
           />
         </div>
       )}
@@ -170,7 +170,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
         {filteredTranscripts.map((transcript) => (
           <div
             key={transcript.id}
-            className="card hover:shadow-lg transition-all duration-200 cursor-pointer relative group"
+            className="card hover:shadow-lg transition-all duration-200 cursor-pointer relative group animate-slide-up"
             onMouseEnter={() => setHoveredTranscript(transcript.id)}
             onMouseLeave={() => setHoveredTranscript(null)}
           >
@@ -203,11 +203,11 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                     </button>
                   </div>
                 ) : (
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
                     {transcript.filename}
                   </h3>
                 )}
-                <div className="flex items-center text-sm text-gray-500 space-x-4">
+                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4">
                   <div className="flex items-center space-x-1.5">
                     <Calendar className="w-4 h-4" />
                     <span>
@@ -290,7 +290,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
 
             {/* Preview on hover */}
             {hoveredTranscript === transcript.id && transcript.preview && (
-              <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-600 line-clamp-2">
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                 {transcript.preview}
               </div>
             )}
