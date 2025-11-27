@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Mic, Lock, Mail, ArrowRight, Zap, Clock, MessageSquare } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Lock, Mail, ArrowRight, Zap, Clock, MessageSquare, Shield } from 'lucide-react'
 import { login, register } from '../services/api'
 import { setToken, setRefreshToken } from '../utils/auth'
 
@@ -81,12 +82,10 @@ function Login({ setIsAuthenticated, setGuestMode }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
-                  <Mic className="w-5 h-5 text-white" />
-                </div>
+                <img src="/logo.png" alt="MemoMind" className="w-9 h-9" />
                 <div>
-                  <h1 className="text-lg font-bold text-gray-900">Voice Transcript</h1>
-                  <p className="text-xs text-gray-500">Upload audio to get transcript and AI summary</p>
+                  <h1 className="text-lg font-bold text-gray-900">MemoMind</h1>
+                  <p className="text-xs text-gray-500">Chat with your voice memos</p>
                 </div>
               </div>
               
@@ -114,14 +113,14 @@ function Login({ setIsAuthenticated, setGuestMode }) {
           <div className="max-w-2xl w-full text-center">
             {/* Hero Text */}
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Transform Audio into Text with AI
+              Chat with Your Voice Memos
             </h2>
             <p className="text-lg text-gray-600 mb-8">
-              Upload any audio file and get accurate transcripts with speaker detection and AI-powered summaries.
+              Turn your recordings into searchable transcripts and have AI conversations about what was said.
             </p>
 
             {/* Main CTA - Try Now */}
-            <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
+            <div className="bg-white rounded-xl shadow-sm p-8 mb-6">
               <button
                 onClick={handleGuestMode}
                 className="w-full py-4 bg-blue-600 text-white text-lg font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
@@ -132,6 +131,19 @@ function Login({ setIsAuthenticated, setGuestMode }) {
               <p className="text-sm text-gray-500 mt-3">
                 Free trial: 5MB max file size • No signup required
               </p>
+            </div>
+
+            {/* Privacy Banner */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-8 flex items-center gap-4">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Shield className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-green-900">Your privacy is protected</h3>
+                <p className="text-sm text-green-700">
+                  Audio files are automatically deleted immediately after transcription. We never store or share your recordings.
+                </p>
+              </div>
             </div>
 
             {/* Features */}
@@ -184,13 +196,14 @@ function Login({ setIsAuthenticated, setGuestMode }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-700">Voice Transcript</span>
+                <span className="font-medium text-gray-700">MemoMind</span>
                 <span>|</span>
                 <span>© 2025 <a href="https://alanbouo.com" className="text-blue-600 hover:underline">alanbouo.com</a></span>
               </div>
               <div className="flex items-center gap-4">
-                <a href="#" className="hover:text-gray-700">About</a>
-                <a href="#" className="hover:text-gray-700">Privacy Policy</a>
+                <a href="https://alanbouo.com/about" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">About</a>
+                <a href="https://alanbouo.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">Contact</a>
+                <Link to="/privacy" className="hover:text-gray-700">Privacy Policy</Link>
               </div>
             </div>
           </div>
@@ -210,12 +223,10 @@ function Login({ setIsAuthenticated, setGuestMode }) {
               onClick={() => goToView('home')}
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
-              <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
-                <Mic className="w-5 h-5 text-white" />
-              </div>
+              <img src="/logo.png" alt="MemoMind" className="w-9 h-9" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Voice Transcript</h1>
-                <p className="text-xs text-gray-500">Upload audio to get transcript and AI summary</p>
+                <h1 className="text-lg font-bold text-gray-900">MemoMind</h1>
+                <p className="text-xs text-gray-500">Chat with your voice memos</p>
               </div>
             </button>
             
@@ -367,13 +378,14 @@ function Login({ setIsAuthenticated, setGuestMode }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Voice Transcript</span>
+              <span className="font-medium text-gray-700">MemoMind</span>
               <span>|</span>
               <span>© 2025 <a href="https://alanbouo.com" className="text-blue-600 hover:underline">alanbouo.com</a></span>
             </div>
             <div className="flex items-center gap-4">
-              <a href="#" className="hover:text-gray-700">About</a>
-              <a href="#" className="hover:text-gray-700">Privacy Policy</a>
+              <a href="https://alanbouo.com/about" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">About</a>
+              <a href="https://alanbouo.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">Contact</a>
+              <Link to="/privacy" className="hover:text-gray-700">Privacy Policy</Link>
             </div>
           </div>
         </div>

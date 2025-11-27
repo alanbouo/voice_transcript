@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Mic, Clock, HelpCircle, UserPlus, X, Send, Loader2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { UserPlus, X, Send, Loader2 } from 'lucide-react'
 import { transcribeAudioGuest, sendChatMessageGuest } from '../services/api'
 import GuestUpload from './GuestUpload'
 
@@ -25,11 +26,9 @@ function GuestDashboard({ setGuestMode }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo & Title */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
-                <Mic className="w-5 h-5 text-white" />
-              </div>
+              <img src="/logo.png" alt="MemoMind" className="w-9 h-9" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Voice Transcript</h1>
+                <h1 className="text-lg font-bold text-gray-900">MemoMind</h1>
                 <p className="text-xs text-gray-500">Guest Mode • Limited features</p>
               </div>
             </div>
@@ -132,7 +131,7 @@ function GuestDashboard({ setGuestMode }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">Voice Transcript</span>
+              <span className="font-medium text-gray-700">MemoMind</span>
               <span>|</span>
               <span>© 2025 <a href="https://alanbouo.com" className="text-blue-600 hover:underline">alanbouo.com</a></span>
             </div>
@@ -140,6 +139,9 @@ function GuestDashboard({ setGuestMode }) {
               <button onClick={handleExitGuest} className="text-blue-600 hover:text-blue-700 font-medium">
                 Sign Up / Login
               </button>
+              <a href="https://alanbouo.com/about" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">About</a>
+              <a href="https://alanbouo.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">Contact</a>
+              <Link to="/privacy" className="hover:text-gray-700">Privacy Policy</Link>
             </div>
           </div>
         </div>

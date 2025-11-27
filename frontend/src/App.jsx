@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import GuestDashboard from './components/GuestDashboard'
+import Legal from './components/Legal'
 import { getToken } from './utils/auth'
 
 function App() {
@@ -35,11 +36,6 @@ function App() {
     )
   }
 
-  // Guest mode - show guest dashboard
-  if (guestMode && !isAuthenticated) {
-    return <GuestDashboard setGuestMode={setGuestMode} />
-  }
-
   return (
     <BrowserRouter>
       <Routes>
@@ -56,9 +52,12 @@ function App() {
           element={
             isAuthenticated 
               ? <Dashboard setIsAuthenticated={setIsAuthenticated} /> 
-              : <Navigate to="/login" replace />
+              : guestMode 
+                ? <GuestDashboard setGuestMode={setGuestMode} />
+                : <Navigate to="/login" replace />
           } 
         />
+        <Route path="/privacy" element={<Legal />} />
       </Routes>
     </BrowserRouter>
   )

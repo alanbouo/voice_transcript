@@ -243,14 +243,14 @@ function Upload({ onTranscriptComplete, defaultQuality = 'medium' }) {
         </div>
       )}
 
-      {/* Main Action Button */}
-      {!uploading && status !== 'success' && (
+      {/* Main Action Button - only show when file is selected */}
+      {file && !uploading && status !== 'success' && (
         <button
-          onClick={file ? handleUpload : () => fileInputRef.current?.click()}
+          onClick={handleUpload}
           disabled={uploading}
           className="w-full mt-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
-          {file ? 'Get Transcript & Summary' : 'Select Audio File'}
+          Get Transcript & Summary
         </button>
       )}
 

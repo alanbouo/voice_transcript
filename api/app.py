@@ -34,7 +34,7 @@ load_dotenv()
 # Initialize database
 init_db()
 
-app = FastAPI(title="Voice Transcript API", version="1.0.0")
+app = FastAPI(title="MemoMind API", version="1.0.0")
 
 # CORS Configuration
 app.add_middleware(
@@ -1040,7 +1040,7 @@ async def export_all_data(
         zip_buffer,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename=voice_transcript_export_{datetime.utcnow().strftime('%Y%m%d')}.zip"
+            "Content-Disposition": f"attachment; filename=memomind_export_{datetime.utcnow().strftime('%Y%m%d')}.zip"
         }
     )
 

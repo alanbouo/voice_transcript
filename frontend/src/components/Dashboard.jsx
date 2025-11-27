@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Mic, Clock, Settings, HelpCircle, MessageSquare } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Clock, Settings, HelpCircle, MessageSquare } from 'lucide-react'
 import { clearTokens } from '../utils/auth'
 import { listTranscripts, getCurrentUser, api } from '../services/api'
 import Upload from './Upload'
@@ -149,12 +149,10 @@ function Dashboard({ setIsAuthenticated }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo & Title */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
-                <Mic className="w-5 h-5 text-white" />
-              </div>
+              <img src="/logo.png" alt="MemoMind" className="w-9 h-9" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">Voice Transcript</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Upload audio to get transcript and AI summary</p>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">MemoMind</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Chat with your voice memos</p>
               </div>
             </div>
 
@@ -225,14 +223,15 @@ function Dashboard({ setIsAuthenticated }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700 dark:text-gray-300">Voice Transcript</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">MemoMind</span>
               <span>|</span>
               <span>© 2025 <a href="https://alanbouo.com" className="text-blue-600 hover:underline">alanbouo.com</a></span>
             </div>
             <div className="flex items-center gap-4">
               <button onClick={handleLogout} className="hover:text-gray-700 dark:hover:text-gray-300">Logout</button>
-              <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">About</a>
-              <a href="#" className="hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</a>
+              <a href="https://alanbouo.com/about" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700 dark:hover:text-gray-300">About</a>
+              <a href="https://alanbouo.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700 dark:hover:text-gray-300">Contact</a>
+              <Link to="/privacy" className="hover:text-gray-700 dark:hover:text-gray-300">Privacy Policy</Link>
             </div>
           </div>
         </div>
