@@ -15,8 +15,10 @@ import shutil, uuid, os, re
 from datetime import datetime, timedelta
 import secrets
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import threading
 from dotenv import load_dotenv
 
 from utils.convert import convert_to_mp3
@@ -197,9 +199,10 @@ class PasswordResetConfirm(BaseModel):
 def send_reset_email(to_email: str, reset_token: str, frontend_url: str):
     """Send password reset email"""
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_port = int(os.getenv("SMTP_PORT", "465"))
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
+    smtp_ssl = os.getenv("SMTP_SSL", "true").lower() == "true"  # Use SSL by default
     from_email = os.getenv("SMTP_FROM", smtp_user)
     
     if not smtp_user or not smtp_pass:
@@ -266,13 +269,38 @@ The MemoMind Team
     msg.attach(MIMEText(html_content, "html"))
     
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(from_email, to_email, msg.as_string())
+        print(f"[EMAIL] Attempting to connect to {smtp_host}:{smtp_port} (SSL={smtp_ssl})")
+        if smtp_ssl:
+            # Use SSL connection (port 465)
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context, timeout=30) as server:
+                print(f"[EMAIL] Connected, logging in as {smtp_user}")
+                server.login(smtp_user, smtp_pass)
+                print(f"[EMAIL] Logged in, sending to {to_email}")
+                server.sendmail(from_email, to_email, msg.as_string())
+                print(f"[EMAIL] Email sent successfully to {to_email}")
+        else:
+            # Use STARTTLS (port 587)
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+                print(f"[EMAIL] Connected, starting TLS")
+                server.starttls()
+                print(f"[EMAIL] TLS started, logging in as {smtp_user}")
+                server.login(smtp_user, smtp_pass)
+                print(f"[EMAIL] Logged in, sending to {to_email}")
+                server.sendmail(from_email, to_email, msg.as_string())
+                print(f"[EMAIL] Email sent successfully to {to_email}")
         return True
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[EMAIL ERROR] Authentication failed: {e}")
+        return False
+    except smtplib.SMTPConnectError as e:
+        print(f"[EMAIL ERROR] Connection failed: {e}")
+        return False
+    except ssl.SSLError as e:
+        print(f"[EMAIL ERROR] SSL error: {e}")
+        return False
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        print(f"[EMAIL ERROR] Failed to send email: {type(e).__name__}: {e}")
         return False
 
 
@@ -306,9 +334,13 @@ async def forgot_password(
     db.add(reset_token)
     db.commit()
     
-    # Send email
+    # Send email in background thread (don't block the response)
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    send_reset_email(user.email, token, frontend_url)
+    email_thread = threading.Thread(
+        target=send_reset_email,
+        args=(user.email, token, frontend_url)
+    )
+    email_thread.start()
     
     return {"message": "If an account exists with this email, you will receive a password reset link."}
 
