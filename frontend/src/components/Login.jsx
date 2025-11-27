@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Mic, Lock, Mail } from 'lucide-react'
+import { Mic, Lock, Mail, ArrowRight, Zap, Clock, MessageSquare } from 'lucide-react'
 import { login, register } from '../services/api'
 import { setToken, setRefreshToken } from '../utils/auth'
 
 function Login({ setIsAuthenticated, setGuestMode }) {
-  const [isRegistering, setIsRegistering] = useState(false)
+  const [view, setView] = useState('home') // 'home' | 'login' | 'signup'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -23,8 +23,7 @@ function Login({ setIsAuthenticated, setGuestMode }) {
     setLoading(true)
 
     try {
-      if (isRegistering) {
-        // Registration flow
+      if (view === 'signup') {
         if (password !== confirmPassword) {
           setError('Passwords do not match')
           setLoading(false)
@@ -38,18 +37,14 @@ function Login({ setIsAuthenticated, setGuestMode }) {
         }
 
         await register(email, password)
-        setSuccess('Account created successfully! Please log in.')
+        setSuccess('Account created successfully!')
         
-        // Switch to login mode after successful registration
-        setTimeout(() => {
-          setIsRegistering(false)
-          setPassword('')
-          setConfirmPassword('')
-          setEmail('')
-          setSuccess('')
-        }, 2000)
+        // Auto login after registration
+        const data = await login(email, password)
+        setToken(data.access_token)
+        setRefreshToken(data.refresh_token)
+        setIsAuthenticated(true)
       } else {
-        // Login flow
         const data = await login(email, password)
         setToken(data.access_token)
         setRefreshToken(data.refresh_token)
@@ -57,29 +52,164 @@ function Login({ setIsAuthenticated, setGuestMode }) {
       }
     } catch (err) {
       const errorMessage = err.response?.data?.detail || 
-        (isRegistering ? 'Registration failed. Please try again.' : 'Login failed. Please check your credentials.')
+        (view === 'signup' ? 'Registration failed. Please try again.' : 'Login failed. Please check your credentials.')
       setError(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
-  const toggleMode = () => {
-    setIsRegistering(!isRegistering)
-    setError('')
-    setSuccess('')
+  const resetForm = () => {
+    setEmail('')
     setPassword('')
     setConfirmPassword('')
-    setEmail('')
+    setError('')
+    setSuccess('')
   }
 
+  const goToView = (newView) => {
+    resetForm()
+    setView(newView)
+  }
+
+  // Homepage view
+  if (view === 'home') {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-100">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
+                  <Mic className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-gray-900">Voice Transcript</h1>
+                  <p className="text-xs text-gray-500">Upload audio to get transcript and AI summary</p>
+                </div>
+              </div>
+              
+              {/* Auth buttons in header */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => goToView('login')}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  Log in
+                </button>
+                <button
+                  onClick={() => goToView('signup')}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Sign up
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content - Hero */}
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="max-w-2xl w-full text-center">
+            {/* Hero Text */}
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Transform Audio into Text with AI
+            </h2>
+            <p className="text-lg text-gray-600 mb-8">
+              Upload any audio file and get accurate transcripts with speaker detection and AI-powered summaries.
+            </p>
+
+            {/* Main CTA - Try Now */}
+            <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
+              <button
+                onClick={handleGuestMode}
+                className="w-full py-4 bg-blue-600 text-white text-lg font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                Try it now — no account needed
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <p className="text-sm text-gray-500 mt-3">
+                Free trial: 5MB max file size • No signup required
+              </p>
+            </div>
+
+            {/* Features */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              <div className="bg-white rounded-lg p-4 text-left">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                  <Zap className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="font-medium text-gray-900 mb-1">Fast & Accurate</h3>
+                <p className="text-sm text-gray-500">AI-powered transcription with speaker detection</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-left">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
+                  <MessageSquare className="w-5 h-5 text-green-600" />
+                </div>
+                <h3 className="font-medium text-gray-900 mb-1">AI Chat</h3>
+                <p className="text-sm text-gray-500">Ask questions about your transcripts</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-left">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
+                  <Clock className="w-5 h-5 text-purple-600" />
+                </div>
+                <h3 className="font-medium text-gray-900 mb-1">History</h3>
+                <p className="text-sm text-gray-500">Save and access all your transcripts</p>
+              </div>
+            </div>
+
+            {/* Secondary CTAs */}
+            <div className="flex items-center justify-center gap-4">
+              <span className="text-gray-500">Want full features?</span>
+              <button
+                onClick={() => goToView('signup')}
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Create free account
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => goToView('login')}
+                className="text-gray-600 hover:text-gray-700"
+              >
+                Log in
+              </button>
+            </div>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-gray-200 py-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-700">Voice Transcript</span>
+                <span>|</span>
+                <span>© 2025 <a href="https://alanbouo.com" className="text-blue-600 hover:underline">alanbouo.com</a></span>
+              </div>
+              <div className="flex items-center gap-4">
+                <a href="#" className="hover:text-gray-700">About</a>
+                <a href="#" className="hover:text-gray-700">Privacy Policy</a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    )
+  }
+
+  // Login / Signup form view
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between h-16">
+            <button 
+              onClick={() => goToView('home')}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
               <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
                 <Mic className="w-5 h-5 text-white" />
               </div>
@@ -87,6 +217,31 @@ function Login({ setIsAuthenticated, setGuestMode }) {
                 <h1 className="text-lg font-bold text-gray-900">Voice Transcript</h1>
                 <p className="text-xs text-gray-500">Upload audio to get transcript and AI summary</p>
               </div>
+            </button>
+            
+            {/* Toggle between login/signup */}
+            <div className="flex items-center gap-3">
+              {view === 'login' ? (
+                <>
+                  <span className="text-sm text-gray-500 hidden sm:inline">Don't have an account?</span>
+                  <button
+                    onClick={() => goToView('signup')}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-gray-500 hidden sm:inline">Already have an account?</span>
+                  <button
+                    onClick={() => goToView('login')}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Log in
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -97,10 +252,10 @@ function Login({ setIsAuthenticated, setGuestMode }) {
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md w-full">
           <div className="text-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              {isRegistering ? 'Create your account' : 'Welcome back'}
+              {view === 'signup' ? 'Create your account' : 'Welcome back'}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {isRegistering ? 'Start transcribing your audio files' : 'Sign in to continue'}
+              {view === 'signup' ? 'Start transcribing your audio files' : 'Sign in to continue'}
             </p>
           </div>
 
@@ -133,14 +288,14 @@ function Login({ setIsAuthenticated, setGuestMode }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={isRegistering ? "Min 6 characters" : "Enter your password"}
+                  placeholder={view === 'signup' ? "Min 6 characters" : "Enter your password"}
                   required
-                  minLength={isRegistering ? 6 : undefined}
+                  minLength={view === 'signup' ? 6 : undefined}
                 />
               </div>
             </div>
 
-            {isRegistering && (
+            {view === 'signup' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Confirm Password
@@ -177,24 +332,11 @@ function Login({ setIsAuthenticated, setGuestMode }) {
               className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading 
-                ? (isRegistering ? 'Creating account...' : 'Signing in...') 
-                : (isRegistering ? 'Create Account' : 'Sign In')
+                ? (view === 'signup' ? 'Creating account...' : 'Signing in...') 
+                : (view === 'signup' ? 'Create Account' : 'Sign In')
               }
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              {isRegistering 
-                ? 'Already have an account? Sign in' 
-                : "Don't have an account? Create one"
-              }
-            </button>
-          </div>
 
           {/* Divider */}
           <div className="relative my-6">
