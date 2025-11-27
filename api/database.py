@@ -91,6 +91,21 @@ class SpeakerMapping(Base):
     transcript = relationship("Transcript", back_populates="speaker_mappings")
 
 
+class PasswordResetToken(Base):
+    """Token for password reset requests"""
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Integer, default=0)  # 0 = not used, 1 = used
+    
+    # Relationships
+    user = relationship("User")
+
+
 class UserSettings(Base):
     """User settings for customizing the application"""
     __tablename__ = "user_settings"

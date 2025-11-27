@@ -278,4 +278,23 @@ export const sendChatMessageGuest = async (message, transcriptText) => {
   return response.data
 }
 
+// Password Reset
+export const requestPasswordReset = async (email) => {
+  const response = await axios.post(`${API_BASE_URL}/forgot-password`, { email })
+  return response.data
+}
+
+export const verifyResetToken = async (token) => {
+  const response = await axios.get(`${API_BASE_URL}/verify-reset-token?token=${token}`)
+  return response.data
+}
+
+export const resetPassword = async (token, newPassword) => {
+  const response = await axios.post(`${API_BASE_URL}/reset-password`, {
+    token,
+    new_password: newPassword
+  })
+  return response.data
+}
+
 export default api

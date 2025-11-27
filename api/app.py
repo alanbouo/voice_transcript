@@ -12,13 +12,17 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from pathlib import Path
 import shutil, uuid, os, re
-from datetime import datetime
+from datetime import datetime, timedelta
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 from utils.convert import convert_to_mp3
 from scripts.transcribe import transcribe_audio
 from scripts.export import save_transcript_json, save_transcript_txt
-from api.database import init_db, get_db, User, Transcript, ChatMessage, SpeakerMapping, UserSettings
+from api.database import init_db, get_db, User, Transcript, ChatMessage, SpeakerMapping, UserSettings, PasswordResetToken
 from api.auth import (
     verify_password, 
     get_password_hash, 
@@ -179,6 +183,197 @@ async def get_current_user(
         email=user.email,
         created_at=user.created_at.isoformat()
     )
+
+
+# Password Reset Models
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+def send_reset_email(to_email: str, reset_token: str, frontend_url: str):
+    """Send password reset email"""
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    from_email = os.getenv("SMTP_FROM", smtp_user)
+    
+    if not smtp_user or not smtp_pass:
+        # Log but don't fail - for development without email
+        print(f"[DEV MODE] Password reset token for {to_email}: {reset_token}")
+        print(f"[DEV MODE] Reset URL: {frontend_url}/reset-password?token={reset_token}")
+        return True
+    
+    reset_url = f"{frontend_url}/reset-password?token={reset_token}"
+    
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "MemoMind - Reset Your Password"
+    msg["From"] = from_email
+    msg["To"] = to_email
+    
+    text_content = f"""
+Hello,
+
+You requested to reset your password for MemoMind.
+
+Click the link below to reset your password:
+{reset_url}
+
+This link will expire in 1 hour.
+
+If you didn't request this, you can safely ignore this email.
+
+Best regards,
+The MemoMind Team
+"""
+    
+    html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .button {{ display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; }}
+        .footer {{ margin-top: 30px; color: #6b7280; font-size: 14px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Reset Your Password</h2>
+        <p>Hello,</p>
+        <p>You requested to reset your password for MemoMind.</p>
+        <p>Click the button below to reset your password:</p>
+        <p style="margin: 30px 0;">
+            <a href="{reset_url}" class="button">Reset Password</a>
+        </p>
+        <p>Or copy this link: <a href="{reset_url}">{reset_url}</a></p>
+        <p>This link will expire in 1 hour.</p>
+        <p class="footer">
+            If you didn't request this, you can safely ignore this email.<br>
+            — The MemoMind Team
+        </p>
+    </div>
+</body>
+</html>
+"""
+    
+    msg.attach(MIMEText(text_content, "plain"))
+    msg.attach(MIMEText(html_content, "html"))
+    
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(from_email, to_email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
+
+@app.post("/forgot-password")
+async def forgot_password(
+    request: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """Request a password reset email"""
+    user = get_user_by_email(db, request.email)
+    
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If an account exists with this email, you will receive a password reset link."}
+    
+    # Invalidate any existing tokens for this user
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used == 0
+    ).update({"used": 1})
+    
+    # Create new reset token
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+    
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at
+    )
+    db.add(reset_token)
+    db.commit()
+    
+    # Send email
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    send_reset_email(user.email, token, frontend_url)
+    
+    return {"message": "If an account exists with this email, you will receive a password reset link."}
+
+
+@app.post("/reset-password")
+async def reset_password(
+    request: PasswordResetConfirm,
+    db: Session = Depends(get_db)
+):
+    """Reset password using token"""
+    # Find valid token
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == request.token,
+        PasswordResetToken.used == 0,
+        PasswordResetToken.expires_at > datetime.utcnow()
+    ).first()
+    
+    if not reset_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token"
+        )
+    
+    # Validate password
+    if len(request.new_password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 6 characters"
+        )
+    
+    # Update password
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.hashed_password = get_password_hash(request.new_password)
+    
+    # Mark token as used
+    reset_token.used = 1
+    
+    db.commit()
+    
+    return {"message": "Password has been reset successfully"}
+
+
+@app.get("/verify-reset-token")
+async def verify_reset_token(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """Verify if a reset token is valid"""
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token,
+        PasswordResetToken.used == 0,
+        PasswordResetToken.expires_at > datetime.utcnow()
+    ).first()
+    
+    if not reset_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token"
+        )
+    
+    return {"valid": True}
+
 
 @app.post("/transcribe")
 async def transcribe_endpoint(
