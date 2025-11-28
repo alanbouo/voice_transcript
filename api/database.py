@@ -20,9 +20,17 @@ if DATABASE_URL:
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,  # Test connections before using them
-        pool_recycle=300,    # Recycle connections after 5 minutes
-        pool_size=5,
-        max_overflow=10
+        pool_recycle=60,     # Recycle connections after 1 minute
+        pool_size=3,
+        max_overflow=5,
+        pool_timeout=30,
+        connect_args={
+            "connect_timeout": 10,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5
+        }
     )
 else:
     # Development: Use SQLite
