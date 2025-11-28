@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Mail, ArrowRight, Zap, Clock, MessageSquare, Shield } from 'lucide-react'
 import { login, register } from '../services/api'
 import { setToken, setRefreshToken } from '../utils/auth'
 
 function Login({ setIsAuthenticated, setGuestMode }) {
+  const navigate = useNavigate()
   const [view, setView] = useState('home') // 'home' | 'login' | 'signup'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +16,7 @@ function Login({ setIsAuthenticated, setGuestMode }) {
 
   const handleGuestMode = () => {
     setGuestMode(true)
+    navigate('/')
   }
 
   const handleSubmit = async (e) => {
