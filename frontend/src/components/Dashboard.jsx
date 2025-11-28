@@ -169,7 +169,6 @@ function Dashboard({ setIsAuthenticated }) {
                 label="History" 
                 isActive={activeView === 'history'}
                 onClick={() => setActiveView('history')}
-                badge={transcripts.length > 0}
               />
               <NavButton 
                 icon={Settings} 
