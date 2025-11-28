@@ -17,7 +17,13 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Test connections before using them
+        pool_recycle=300,    # Recycle connections after 5 minutes
+        pool_size=5,
+        max_overflow=10
+    )
 else:
     # Development: Use SQLite
     DB_PATH = Path("voice_transcript.db")

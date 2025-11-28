@@ -268,8 +268,9 @@ The MemoMind Team
     msg.attach(MIMEText(text_content, "plain"))
     msg.attach(MIMEText(html_content, "html"))
     
+    import sys
     try:
-        print(f"[EMAIL] Attempting to connect to {smtp_host}:{smtp_port} (SSL={smtp_ssl})")
+        print(f"[EMAIL] Attempting to connect to {smtp_host}:{smtp_port} (SSL={smtp_ssl})", flush=True)
         if smtp_ssl:
             # Use SSL connection (port 465)
             context = ssl.create_default_context()
@@ -291,16 +292,16 @@ The MemoMind Team
                 print(f"[EMAIL] Email sent successfully to {to_email}")
         return True
     except smtplib.SMTPAuthenticationError as e:
-        print(f"[EMAIL ERROR] Authentication failed: {e}")
+        print(f"[EMAIL ERROR] Authentication failed: {e}", flush=True)
         return False
     except smtplib.SMTPConnectError as e:
-        print(f"[EMAIL ERROR] Connection failed: {e}")
+        print(f"[EMAIL ERROR] Connection failed: {e}", flush=True)
         return False
     except ssl.SSLError as e:
-        print(f"[EMAIL ERROR] SSL error: {e}")
+        print(f"[EMAIL ERROR] SSL error: {e}", flush=True)
         return False
     except Exception as e:
-        print(f"[EMAIL ERROR] Failed to send email: {type(e).__name__}: {e}")
+        print(f"[EMAIL ERROR] Failed to send email: {type(e).__name__}: {e}", flush=True)
         return False
 
 
