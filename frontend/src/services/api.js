@@ -72,11 +72,13 @@ export const register = async (email, password) => {
 }
 
 export const login = async (username, password) => {
-  const formData = new FormData()
-  formData.append('username', username)
-  formData.append('password', password)
+  const params = new URLSearchParams()
+  params.append('username', username)
+  params.append('password', password)
 
-  const response = await axios.post(`${API_BASE_URL}/token`, formData)
+  const response = await axios.post(`${API_BASE_URL}/token`, params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  })
   return response.data
 }
 
