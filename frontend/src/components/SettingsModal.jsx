@@ -50,7 +50,6 @@ const SettingsModal = ({ isOpen, onClose, onSettingsChange }) => {
         // Transcription
         default_quality: 'medium',
         default_language: '',
-        speaker_diarization: true,
         // Display
         theme: 'system',
         date_format: 'us',
@@ -87,7 +86,6 @@ const SettingsModal = ({ isOpen, onClose, onSettingsChange }) => {
                 temperature: response.data.temperature || '0.7',
                 default_quality: response.data.default_quality || 'medium',
                 default_language: response.data.default_language || '',
-                speaker_diarization: response.data.speaker_diarization ?? true,
                 theme: response.data.theme || 'system',
                 date_format: response.data.date_format || 'us',
                 font_size: response.data.font_size || 'medium',
@@ -313,33 +311,6 @@ const SettingsModal = ({ isOpen, onClose, onSettingsChange }) => {
                                             ))}
                                         </select>
                                         <p className={descClass}>Force a specific language or let the AI auto-detect</p>
-                                    </div>
-
-                                    <div>
-                                        <label className={labelClass}>Speaker Diarization</label>
-                                        <div className="flex items-center gap-3 mt-2">
-                                            <button
-                                                onClick={() => updateSetting('speaker_diarization', true)}
-                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                                    settings.speaker_diarization
-                                                        ? 'bg-primary-600 text-white'
-                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                                }`}
-                                            >
-                                                Enabled
-                                            </button>
-                                            <button
-                                                onClick={() => updateSetting('speaker_diarization', false)}
-                                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                                    !settings.speaker_diarization
-                                                        ? 'bg-primary-600 text-white'
-                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                                }`}
-                                            >
-                                                Disabled
-                                            </button>
-                                        </div>
-                                        <p className={descClass}>Identify and label different speakers in the transcript</p>
                                     </div>
                                 </div>
                             )}

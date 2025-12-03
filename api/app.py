@@ -813,7 +813,6 @@ class SettingsUpdate(BaseModel):
     # Transcription settings
     default_quality: Optional[str] = None
     default_language: Optional[str] = None
-    speaker_diarization: Optional[bool] = None
     # Display settings
     theme: Optional[str] = None
     date_format: Optional[str] = None
@@ -847,7 +846,6 @@ async def get_settings(
             "temperature": "0.7",
             "default_quality": "medium",
             "default_language": None,
-            "speaker_diarization": True,
             "theme": "system",
             "date_format": "us",
             "font_size": "medium"
@@ -861,7 +859,6 @@ async def get_settings(
         "temperature": db_user.settings.temperature or "0.7",
         "default_quality": db_user.settings.default_quality or "medium",
         "default_language": db_user.settings.default_language,
-        "speaker_diarization": bool(db_user.settings.speaker_diarization) if db_user.settings.speaker_diarization is not None else True,
         "theme": db_user.settings.theme or "system",
         "date_format": db_user.settings.date_format or "us",
         "font_size": db_user.settings.font_size or "medium"
@@ -897,8 +894,6 @@ async def update_settings(
         db_user.settings.default_quality = settings.default_quality
     if settings.default_language is not None:
         db_user.settings.default_language = settings.default_language or None
-    if settings.speaker_diarization is not None:
-        db_user.settings.speaker_diarization = 1 if settings.speaker_diarization else 0
     if settings.theme is not None:
         db_user.settings.theme = settings.theme
     if settings.date_format is not None:

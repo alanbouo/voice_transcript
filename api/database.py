@@ -137,7 +137,6 @@ class UserSettings(Base):
     # Transcription settings
     default_quality = Column(String, default="medium")  # low/medium/high
     default_language = Column(String, nullable=True)  # null = auto-detect
-    speaker_diarization = Column(Integer, default=1)  # 1 = enabled, 0 = disabled
     
     # Display settings
     theme = Column(String, default="system")  # light/dark/system
