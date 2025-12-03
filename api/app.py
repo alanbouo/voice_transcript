@@ -34,6 +34,7 @@ from api.auth import (
 )
 import openai
 import json
+import jwt
 
 load_dotenv()
 
@@ -80,8 +81,6 @@ class UserResponse(BaseModel):
     email: str
     created_at: str
 
-# In-memory refresh token store (consider Redis for production)
-refresh_tokens_db = {}
 
 
 def authenticate_token(token: str = Depends(oauth2_scheme)):
@@ -170,7 +169,6 @@ async def login(request: Request, db: Session = Depends(get_db)):
     # Create tokens
     access_token = create_access_token(user.email)
     refresh_token = create_refresh_token(user.email)
-    refresh_tokens_db[refresh_token] = user.email
     
     return {
         "access_token": access_token,
@@ -182,14 +180,17 @@ async def login(request: Request, db: Session = Depends(get_db)):
 async def refresh_token_endpoint(refresh_token: str = Form(...)):
     """Refresh access token using refresh token"""
     try:
+        # JWT is cryptographically signed - just validate signature and expiry
         payload = decode_token(refresh_token)
         email = payload.get("sub")
         
-        if refresh_token not in refresh_tokens_db or refresh_tokens_db[refresh_token] != email:
+        if not email:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
         
         new_access_token = create_access_token(email)
         return {"access_token": new_access_token, "token_type": "bearer"}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
