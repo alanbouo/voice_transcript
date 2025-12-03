@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -129,41 +129,32 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/token")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Login and get access token (uses email in username field)"""
-    # Get user from database by email (form_data.username contains the email)
-    user = get_user_by_email(db, form_data.username)
+async def login(request: Request, db: Session = Depends(get_db)):
+    """Login and get access token - accepts both form data and JSON"""
+    content_type = request.headers.get("content-type", "")
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    # Try to parse the request body
+    if "application/json" in content_type:
+        # JSON body
+        body = await request.json()
+        email = body.get("email") or body.get("username")
+        password = body.get("password")
+    else:
+        # Form data (application/x-www-form-urlencoded or multipart/form-data)
+        form = await request.form()
+        email = form.get("username") or form.get("email")
+        password = form.get("password")
+    
+    if not email or not password:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Missing email/username or password"
         )
     
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
-        )
+    # Get user from database by email
+    user = get_user_by_email(db, email)
     
-    # Create tokens
-    access_token = create_access_token(user.email)
-    refresh_token = create_refresh_token(user.email)
-    refresh_tokens_db[refresh_token] = user.email
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer"
-    }
-
-@app.post("/login")
-async def login_json(login_data: LoginRequest, db: Session = Depends(get_db)):
-    """Login with JSON body (email + password) - mobile-friendly alternative to /token"""
-    user = get_user_by_email(db, login_data.email)
-    
-    if not user or not verify_password(login_data.password, user.hashed_password):
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
