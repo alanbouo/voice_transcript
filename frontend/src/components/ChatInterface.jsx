@@ -204,19 +204,32 @@ function ChatInterface({ transcriptId, transcriptPreview }) {
 
       {/* Input */}
       <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex gap-2">
-          <input
-            type="text"
+        <div className="flex gap-2 items-end">
+          <textarea
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Ask a question about this transcript..."
-            className="flex-1 input-field"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (inputMessage.trim() && !loading) {
+                  handleSendMessage(e)
+                }
+              }
+            }}
+            placeholder="Ask a question about this transcript... (Shift+Enter for new line)"
+            className="flex-1 input-field resize-none min-h-[42px] max-h-[120px]"
             disabled={loading}
+            rows={1}
+            style={{ height: 'auto', overflow: 'hidden' }}
+            onInput={(e) => {
+              e.target.style.height = 'auto'
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+            }}
           />
           <button
             type="submit"
             disabled={loading || !inputMessage.trim()}
-            className="btn-primary px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary px-4 h-[42px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
           </button>
