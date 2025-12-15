@@ -197,7 +197,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                       type="text"
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
-                      className="flex-1 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') saveRename(transcript.database_id)
