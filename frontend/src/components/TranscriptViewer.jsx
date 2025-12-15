@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle, Search, FileAudio } from 'lucide-react'
+import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle, Search, FileAudio, Copy, CheckCheck } from 'lucide-react'
 import api, { getTranscriptUtterances, updateSpeakerMapping, renameTranscript, deleteTranscript } from '../services/api'
 import ChatInterface from './ChatInterface'
 
@@ -28,6 +28,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [hoveredTranscript, setHoveredTranscript] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   // Filter transcripts based on search
   const filteredTranscripts = transcripts.filter(t =>
@@ -119,6 +120,20 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
 
   const handleDeleteClick = (transcript) => {
     setDeleteConfirm(transcript)
+  }
+
+  const handleCopyTranscript = async () => {
+    const transcriptText = transcriptData.utterances
+      .map(u => `${getSpeakerName(u.speaker)}: ${u.text}`)
+      .join('\n\n')
+    
+    try {
+      await navigator.clipboard.writeText(transcriptText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy transcript:', err)
+    }
   }
 
   const handleDeleteConfirm = async () => {
@@ -333,9 +348,24 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                     </span>
                   </button>
                   <button
+                    onClick={handleCopyTranscript}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      copied
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    disabled={!transcriptData.utterances || transcriptData.utterances.length === 0}
+                  >
+                    {copied ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span className="text-sm font-medium">
+                      {copied ? 'Copied!' : 'Copy Transcript'}
+                    </span>
+                  </button>
+                  <button
                     onClick={() => {
                       setSelectedTranscript(null)
                       setShowChat(false)
+                      setCopied(false)
                     }}
                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
                   >
