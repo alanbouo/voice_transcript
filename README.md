@@ -161,9 +161,29 @@ voice_transcript/
 ## 🧪 Sample `.txt` Output
 
 ```
-Speaker A ▶ Hello, I’m calling about the maintenance contract.
-Speaker B ▶ Sure, could you give me your case number?
+[00:00] Speaker A ▶ Hello, I’m calling about the maintenance contract.
+[00:04] Speaker B ▶ Sure, could you give me your case number?
 ```
+
+In the web app, every utterance shows its `MM:SS - MM:SS` span; the
+**Timestamps** toggle in the transcript view controls the display, the
+*Copy transcript* button and the TXT download
+(`GET /transcripts/{id}?format=txt&timestamps=true`).
+
+---
+
+## 🔔 Webhooks
+
+MemoMind can POST a signed JSON event to an endpoint of your choice
+(n8n, Make, Zapier, your own API) when:
+
+- a user signs up — `user.registered`
+- a transcription is requested — `transcription.requested`
+  (plus `transcription.completed` / `transcription.failed`)
+
+Set `WEBHOOK_URL` (or `WEBHOOK_SIGNUP_URL` / `WEBHOOK_TRANSCRIPTION_URL`) and
+`WEBHOOK_SECRET` in your `.env`. Full payloads, headers and signature
+verification: [WEBHOOKS.md](WEBHOOKS.md).
 
 ---
 

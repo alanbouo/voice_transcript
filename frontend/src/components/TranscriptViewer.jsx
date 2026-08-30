@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle, Search, FileAudio, Copy, CheckCheck } from 'lucide-react'
+import { FileText, Download, Calendar, FileJson, MessageCircle, Edit2, Check, X, Trash2, Pencil, AlertTriangle, Search, FileAudio, Copy, CheckCheck, Clock } from 'lucide-react'
 import api, { getTranscriptUtterances, updateSpeakerMapping, renameTranscript, deleteTranscript } from '../services/api'
 import ChatInterface from './ChatInterface'
+import { formatRange, renderTranscriptText } from '../utils/time'
 
 // Helper to estimate word count from transcript
 const getWordCount = (transcript) => {
@@ -29,6 +30,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   const [searchQuery, setSearchQuery] = useState('')
   const [hoveredTranscript, setHoveredTranscript] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [showTimestamps, setShowTimestamps] = useState(true)
 
   // Filter transcripts based on search
   const filteredTranscripts = transcripts.filter(t =>
@@ -53,7 +55,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   const handleDownload = async (transcript, format) => {
     try {
       const response = await api.get(`/transcripts/${transcript.id}`, {
-        params: { format },
+        params: format === 'txt' ? { format, timestamps: showTimestamps } : { format },
         responseType: 'blob'
       })
 
@@ -123,10 +125,12 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   }
 
   const handleCopyTranscript = async () => {
-    const transcriptText = transcriptData.utterances
-      .map(u => `${getSpeakerName(u.speaker)}: ${u.text}`)
-      .join('\n\n')
-    
+    const transcriptText = renderTranscriptText(
+      transcriptData.utterances,
+      getSpeakerName,
+      showTimestamps
+    )
+
     try {
       await navigator.clipboard.writeText(transcriptText)
       setCopied(true)
@@ -336,6 +340,17 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    onClick={() => setShowTimestamps(!showTimestamps)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${showTimestamps
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    title={showTimestamps ? 'Hide timestamps' : 'Show timestamps'}
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">Timestamps</span>
+                  </button>
+                  <button
                     onClick={() => setShowChat(!showChat)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${showChat
                         ? 'bg-primary-600 text-white'
@@ -430,9 +445,14 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                                   </button>
                                 </div>
                               )}
-                              <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                                {new Date(utterance.start).toISOString().substr(14, 5)}
-                              </span>
+                              {showTimestamps && (
+                                <span
+                                  className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded"
+                                  title={`Starts at ${utterance.start_formatted || formatRange(utterance.start)}`}
+                                >
+                                  {utterance.timestamp || formatRange(utterance.start, utterance.end)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -457,9 +477,7 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                     <ChatInterface
                       transcriptId={selectedTranscript.database_id}
                       transcriptPreview={
-                        transcriptData.utterances
-                          .map(u => `${getSpeakerName(u.speaker)}: ${u.text}`)
-                          .join('\n')
+                        renderTranscriptText(transcriptData.utterances, getSpeakerName, showTimestamps)
                       }
                     />
                   ) : (

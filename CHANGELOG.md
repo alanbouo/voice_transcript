@@ -2,6 +2,33 @@
 
 All notable changes to the Voice Transcript project.
 
+## [Unreleased] - Timestamps & Webhooks
+
+### Added
+- **Timestamps in transcripts**
+  - Each utterance shows its `MM:SS - MM:SS` span in the viewer, with a
+    Timestamps toggle in the transcript modal
+  - Guest transcripts are now rendered per speaker with timestamps instead of
+    as a flat text blob (`/transcribe/guest` returns an `utterances` array)
+  - "Copy transcript" and the TXT download follow the toggle
+    (`GET /transcripts/{id}?format=txt&timestamps=true`)
+  - `GET /transcripts/{id}/utterances` returns `speaker_name`,
+    `start_formatted`, `end_formatted` and `timestamp` alongside the raw fields
+  - Shared formatters (`utils/transcript_format.py`, `frontend/src/utils/time.js`)
+    so API, exports and UI agree; hour-long recordings now display correctly
+
+- **Outgoing webhooks** (see [WEBHOOKS.md](WEBHOOKS.md))
+  - `user.registered` fired on signup
+  - `transcription.requested` fired when an upload starts, plus
+    `transcription.completed` / `transcription.failed` for the outcome
+  - HMAC-SHA256 signature (`X-MemoMind-Signature`) over `timestamp.body`,
+    delivery id for deduplication, retries with backoff
+  - Delivered on a background thread — never blocks or fails a user request
+  - Configured entirely through environment variables, disabled when unset
+
+### Changed
+- CLI TXT export (`scripts/export.py`) prefixes each line with `[MM:SS]`
+
 ## [2.0.0] - User Registration & Database System
 
 ### Added
