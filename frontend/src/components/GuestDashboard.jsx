@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { UserPlus, X, Send, Loader2 } from 'lucide-react'
+import { UserPlus, X, Send, Loader2, Clock } from 'lucide-react'
 import { transcribeAudioGuest, sendChatMessageGuest } from '../services/api'
 import GuestUpload from './GuestUpload'
+import { formatRange } from '../utils/time'
 
 function GuestDashboard({ setGuestMode }) {
   const [transcript, setTranscript] = useState(null)
@@ -156,6 +157,9 @@ function GuestTranscriptView({ transcript, onNewTranscript }) {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showTimestamps, setShowTimestamps] = useState(true)
+
+  const utterances = transcript.utterances || []
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
@@ -185,18 +189,52 @@ function GuestTranscriptView({ transcript, onNewTranscript }) {
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Your Transcript</h2>
-          <button
-            onClick={onNewTranscript}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            New Transcription
-          </button>
+          <div className="flex items-center gap-3">
+            {utterances.length > 0 && (
+              <button
+                onClick={() => setShowTimestamps(!showTimestamps)}
+                className={`flex items-center gap-1.5 text-sm font-medium ${
+                  showTimestamps ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title={showTimestamps ? 'Hide timestamps' : 'Show timestamps'}
+              >
+                <Clock className="w-4 h-4" />
+                Timestamps
+              </button>
+            )}
+            <button
+              onClick={onNewTranscript}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              New Transcription
+            </button>
+          </div>
         </div>
-        
+
         <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-          <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
-            {transcript.text}
-          </pre>
+          {utterances.length > 0 ? (
+            <div className="space-y-3">
+              {utterances.map((utterance, index) => (
+                <div key={index} className="text-sm">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-semibold text-gray-900">
+                      {utterance.speaker_name || utterance.speaker}
+                    </span>
+                    {showTimestamps && (
+                      <span className="text-xs text-gray-500 font-mono bg-gray-200 px-2 py-0.5 rounded">
+                        {utterance.timestamp || formatRange(utterance.start, utterance.end)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-700 leading-relaxed">{utterance.text}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">
+              {transcript.text}
+            </pre>
+          )}
         </div>
 
         <p className="text-xs text-amber-600 mt-3">

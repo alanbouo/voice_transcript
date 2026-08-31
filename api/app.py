@@ -22,8 +22,10 @@ import threading
 from dotenv import load_dotenv
 
 from utils.convert import convert_to_mp3
+from utils.transcript_format import enrich_utterances, render_transcript_text
 from scripts.transcribe import transcribe_audio
 from scripts.export import save_transcript_json, save_transcript_txt
+from api import webhooks
 from api.database import init_db, get_db, User, Transcript, ChatMessage, SpeakerMapping, UserSettings, PasswordResetToken
 from api.auth import (
     verify_password, 
@@ -120,7 +122,17 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
+    # Notify the configured signup webhook (background, never blocks the response)
+    webhooks.dispatch(webhooks.EVENT_USER_REGISTERED, {
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "created_at": new_user.created_at.isoformat() if new_user.created_at else None,
+        },
+        "source": "web",
+    })
+
     return {
         "message": "User created successfully",
         "email": new_user.email
@@ -452,6 +464,22 @@ async def transcribe_endpoint(
     with open(input_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    requested_at = datetime.utcnow()
+    requesting_user = get_user_by_email(db, user)
+    webhook_context = {
+        "request_id": input_path.stem,
+        "filename": file.filename,
+        "quality": quality,
+        "size_bytes": input_path.stat().st_size if input_path.exists() else None,
+        "is_guest": False,
+        "requested_at": requested_at.isoformat(),
+        "user": {
+            "id": requesting_user.id if requesting_user else None,
+            "email": user,
+        },
+    }
+    webhooks.dispatch(webhooks.EVENT_TRANSCRIPTION_REQUESTED, webhook_context)
+
     try:
         base_name = input_path.stem
         mp3_path = OUTPUT_DIR / f"{base_name}.mp3"
@@ -474,14 +502,15 @@ async def transcribe_endpoint(
             # Fallback to plain text if no utterances
             transcript_text = job.text if hasattr(job, 'text') else ""
         
-        # Save transcript to database
+        # Save transcript to database (re-queried after transcription so the
+        # pooled connection is validated rather than reused after a long wait)
         db_user = get_user_by_email(db, user)
         if not db_user:
             raise HTTPException(
-                status_code=401, 
+                status_code=401,
                 detail="User session expired or invalid. Please log out and log back in."
             )
-        
+
         new_transcript = Transcript(
             transcript_id=base_name,
             user_id=db_user.id,
@@ -506,6 +535,14 @@ async def transcribe_endpoint(
         except Exception as cleanup_error:
             print(f"Warning: Failed to cleanup files: {cleanup_error}")
 
+        webhooks.dispatch(webhooks.EVENT_TRANSCRIPTION_COMPLETED, {
+            **webhook_context,
+            "database_id": new_transcript.id,
+            "duration_seconds": round((datetime.utcnow() - requested_at).total_seconds(), 2),
+            "word_count": len(transcript_text.split()) if transcript_text else 0,
+            "utterance_count": len(job.utterances) if getattr(job, "utterances", None) else 0,
+        })
+
         return {
             "id": base_name,
             "text_file": f"/transcripts/{base_name}?format=txt",
@@ -519,6 +556,10 @@ async def transcribe_endpoint(
                 input_path.unlink()
         except:
             pass
+        webhooks.dispatch(webhooks.EVENT_TRANSCRIPTION_FAILED, {
+            **webhook_context,
+            "error": str(e),
+        })
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -564,6 +605,18 @@ async def transcribe_guest(
     with open(input_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    requested_at = datetime.utcnow()
+    webhook_context = {
+        "request_id": input_path.stem,
+        "filename": file.filename,
+        "quality": quality,
+        "size_bytes": file_size,
+        "is_guest": True,
+        "requested_at": requested_at.isoformat(),
+        "user": None,
+    }
+    webhooks.dispatch(webhooks.EVENT_TRANSCRIPTION_REQUESTED, webhook_context)
+
     try:
         base_name = input_path.stem
         mp3_path = OUTPUT_DIR / f"{base_name}.mp3"
@@ -571,8 +624,13 @@ async def transcribe_guest(
         convert_to_mp3(input_path, mp3_path, bitrate=QUALITY_PRESETS[quality])
         job = transcribe_audio(str(mp3_path), api_key)
 
-        # Extract transcript text
+        # Extract transcript text and timestamped utterances
+        utterances = []
         if hasattr(job, 'utterances') and job.utterances:
+            utterances = enrich_utterances([
+                {"speaker": utt.speaker, "text": utt.text, "start": utt.start, "end": utt.end}
+                for utt in job.utterances
+            ])
             transcript_text = "\n".join([f"{utt.speaker}: {utt.text}" for utt in job.utterances])
         else:
             transcript_text = job.text if hasattr(job, 'text') else ""
@@ -586,9 +644,17 @@ async def transcribe_guest(
         except Exception as cleanup_error:
             print(f"Warning: Failed to cleanup guest files: {cleanup_error}")
 
+        webhooks.dispatch(webhooks.EVENT_TRANSCRIPTION_COMPLETED, {
+            **webhook_context,
+            "duration_seconds": round((datetime.utcnow() - requested_at).total_seconds(), 2),
+            "word_count": len(transcript_text.split()) if transcript_text else 0,
+            "utterance_count": len(utterances),
+        })
+
         return {
             "id": base_name,
             "text": transcript_text,
+            "utterances": utterances,
             "json_response": job.json_response if hasattr(job, 'json_response') else None,
             "is_guest": True,
             "upgrade_message": "Create an account to save transcripts, access history, and customize AI prompts!"
@@ -599,6 +665,10 @@ async def transcribe_guest(
                 input_path.unlink()
         except:
             pass
+        webhooks.dispatch(webhooks.EVENT_TRANSCRIPTION_FAILED, {
+            **webhook_context,
+            "error": str(e),
+        })
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -728,12 +798,17 @@ async def delete_transcript(
 
 @app.get("/transcripts/{transcript_id}")
 def get_transcript(
-    transcript_id: str, 
-    format: str = "txt", 
+    transcript_id: str,
+    format: str = "txt",
+    timestamps: bool = False,
     user: str = Depends(authenticate_token),
     db: Session = Depends(get_db)
 ):
-    """Download transcript with speaker names applied"""
+    """Download transcript with speaker names applied.
+
+    With ?timestamps=true the TXT export is rebuilt from the stored utterances
+    so each line is prefixed with "[MM:SS]".
+    """
     # Try to parse as database ID first
     db_user = get_user_by_email(db, user)
     transcript = None
@@ -778,7 +853,20 @@ def get_transcript(
     else:
         # For TXT, apply mappings to text content
         transcript_text = transcript.text_content
-        
+
+        if timestamps and transcript.json_content:
+            # Rebuild the text from utterances so timestamps can be inlined
+            try:
+                json_data = json.loads(transcript.json_content)
+                utterances = json_data.get('utterances') or []
+                if utterances:
+                    mappings = {m.original_label: m.display_name for m in speaker_mappings}
+                    return PlainTextResponse(
+                        content=render_transcript_text(utterances, mappings, include_timestamps=True)
+                    )
+            except json.JSONDecodeError:
+                pass  # Fall through to the plain text version below
+
         for mapping in speaker_mappings:
             # Replace speaker labels at start of lines
             pattern = re.compile(r'^' + re.escape(mapping.original_label) + r':', flags=re.MULTILINE)
@@ -932,10 +1020,11 @@ async def get_transcript_utterances(
         try:
             data = json.loads(transcript.json_content)
             if 'utterances' in data and data['utterances']:
-                utterances = data['utterances']
+                # Adds speaker_name and formatted timestamps to each utterance
+                utterances = enrich_utterances(data['utterances'], mappings)
         except json.JSONDecodeError:
             pass
-            
+
     return {
         "utterances": utterances,
         "speakers": mappings
