@@ -19,6 +19,7 @@ from utils.transcript_format import (
     format_range,
     format_timestamp,
     render_transcript_text,
+    segment_utterances,
 )
 
 UTTERANCES = [
@@ -68,6 +69,77 @@ def test_render_transcript_text():
     without = render_transcript_text(UTTERANCES, {"A": "Alice"}, include_timestamps=False)
     assert without.splitlines()[0] == "Alice: Bonjour tout le monde."
     print("✅ render_transcript_text")
+
+
+def _monologue(duration_ms=900_000, word_ms=400):
+    """One speaker talking for 15 minutes - what AssemblyAI returns as a single
+    utterance, which is exactly the case that produced a lone 00:00 stamp."""
+    words = []
+    for i in range(duration_ms // word_ms):
+        start = i * word_ms
+        # A sentence ends every 10 words
+        text = f"mot{i}." if i % 10 == 9 else f"mot{i}"
+        words.append({"text": text, "start": start, "end": start + word_ms})
+
+    return [{
+        "speaker": "A",
+        "text": " ".join(w["text"] for w in words),
+        "start": 0,
+        "end": duration_ms,
+        "words": words,
+    }]
+
+
+def test_segment_monologue():
+    segments = segment_utterances(_monologue())
+
+    # A 15-minute block must not stay a single segment
+    assert len(segments) > 10, len(segments)
+
+    # Every segment carries its own timestamps, in order, without gaps or overlap
+    assert segments[0]["start"] == 0
+    previous_end = -1
+    for segment in segments:
+        assert segment["start"] is not None and segment["end"] is not None
+        assert segment["end"] > segment["start"]
+        assert segment["start"] >= previous_end
+        assert segment["speaker"] == "A"
+        assert segment["text"]
+        previous_end = segment["end"]
+
+    # Segments respect the ceiling and mostly land on the target
+    durations = [s["end"] - s["start"] for s in segments]
+    assert max(durations) <= 60_000, max(durations)
+
+    # No text is lost or duplicated in the split
+    joined = " ".join(s["text"] for s in segments)
+    assert joined == _monologue()[0]["text"]
+
+    # Splits land on sentence boundaries
+    assert segments[0]["text"].endswith("."), segments[0]["text"][-30:]
+    print(f"✅ segment_utterances (monologue split into {len(segments)} segments)")
+
+
+def test_segment_leaves_short_utterances_alone():
+    # A normal multi-speaker conversation must pass through untouched
+    assert segment_utterances(UTTERANCES) == UTTERANCES
+
+    # No word timings available (older transcripts) -> unchanged
+    no_words = [{"speaker": "A", "text": "x", "start": 0, "end": 900_000}]
+    assert segment_utterances(no_words) == no_words
+
+    assert segment_utterances(None) == []
+    print("✅ segment_utterances leaves short / word-less utterances alone")
+
+
+def test_enrich_drops_words_by_default():
+    segments = segment_utterances(_monologue())
+    enriched = enrich_utterances(segments)
+
+    assert "words" not in enriched[0]
+    assert enriched[0]["timestamp"] == "00:00 - 00:32", enriched[0]["timestamp"]
+    assert "words" in enrich_utterances(segments, include_words=True)[0]
+    print("✅ enrich_utterances drops word timings by default")
 
 
 def test_build_and_sign_payload():
@@ -181,6 +253,9 @@ if __name__ == "__main__":
     test_format_range()
     test_enrich_utterances()
     test_render_transcript_text()
+    test_segment_monologue()
+    test_segment_leaves_short_utterances_alone()
+    test_enrich_drops_words_by_default()
     test_build_and_sign_payload()
     test_url_resolution()
     test_delivery_end_to_end()

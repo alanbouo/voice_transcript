@@ -170,6 +170,11 @@ In the web app, every utterance shows its `MM:SS - MM:SS` span; the
 *Copy transcript* button and the TXT download
 (`GET /transcripts/{id}?format=txt&timestamps=true`).
 
+Single-speaker recordings (podcasts, dictation, monologues) come back from
+AssemblyAI as one long utterance, since utterances group consecutive words by
+speaker. Those are split into ~30 second segments on sentence boundaries, so a
+timestamp appears regularly rather than once at `00:00`.
+
 ---
 
 ## 🔔 Webhooks

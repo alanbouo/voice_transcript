@@ -2,6 +2,29 @@
 
 All notable changes to the Voice Transcript project.
 
+## [Unreleased] - Timestamp segmentation & deploy cache fix
+
+### Fixed
+- **A monologue showed a single `00:00` stamp.** AssemblyAI groups consecutive
+  words of the same speaker into one utterance, so a single-narrator recording
+  came back as *one* utterance spanning the whole file — one timestamp for a
+  15-minute episode. Long utterances are now split into ~30s segments on
+  sentence boundaries, using the word-level timings already stored in
+  `json_content` (`segment_utterances()`). Multi-speaker conversations already
+  produce short utterances and pass through untouched; transcripts stored
+  without word timings are left as-is.
+- The speaker name and its rename button are only shown when the speaker
+  actually changes, so a segmented monologue does not repeat them on every block.
+- **`index.html` was served from the browser cache after a redeploy**, keeping
+  the previous build's content-hashed JS bundle alive. nginx now sends
+  `Cache-Control: no-cache, must-revalidate` for it; fingerprinted assets keep
+  their one-year immutable cache.
+
+### Changed
+- `GET /transcripts/{id}/utterances` no longer returns per-word timings. Nothing
+  in the UI read them and they dominated the payload; pass `include_words=True`
+  to `enrich_utterances()` server-side if you need them back.
+
 ## [Unreleased] - Timestamps & Webhooks
 
 ### Added
