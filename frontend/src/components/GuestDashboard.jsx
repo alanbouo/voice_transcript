@@ -214,21 +214,30 @@ function GuestTranscriptView({ transcript, onNewTranscript }) {
         <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
           {utterances.length > 0 ? (
             <div className="space-y-3">
-              {utterances.map((utterance, index) => (
-                <div key={index} className="text-sm">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-gray-900">
-                      {utterance.speaker_name || utterance.speaker}
-                    </span>
-                    {showTimestamps && (
-                      <span className="text-xs text-gray-500 font-mono bg-gray-200 px-2 py-0.5 rounded">
-                        {utterance.timestamp || formatRange(utterance.start, utterance.end)}
-                      </span>
-                    )}
+              {utterances.map((utterance, index) => {
+                // Only label the speaker when it changes: a monologue is split
+                // into many timestamped segments
+                const isNewSpeaker =
+                  index === 0 || utterances[index - 1].speaker !== utterance.speaker
+
+                return (
+                  <div key={index} className="text-sm">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {isNewSpeaker && (
+                        <span className="font-semibold text-gray-900">
+                          {utterance.speaker_name || utterance.speaker}
+                        </span>
+                      )}
+                      {showTimestamps && (
+                        <span className="text-xs text-gray-500 font-mono bg-gray-200 px-2 py-0.5 rounded">
+                          {utterance.timestamp || formatRange(utterance.start, utterance.end)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-700 leading-relaxed">{utterance.text}</p>
                   </div>
-                  <p className="text-gray-700 leading-relaxed">{utterance.text}</p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">

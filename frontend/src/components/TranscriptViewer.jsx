@@ -401,11 +401,18 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                 ) : (
                   <div className="space-y-6">
                     {transcriptData.utterances && transcriptData.utterances.length > 0 ? (
-                      transcriptData.utterances.map((utterance, index) => (
+                      transcriptData.utterances.map((utterance, index) => {
+                        // A monologue is split into many segments; only label
+                        // the speaker when it actually changes
+                        const isNewSpeaker =
+                          index === 0 ||
+                          transcriptData.utterances[index - 1].speaker !== utterance.speaker
+
+                        return (
                         <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              {editingSpeaker === utterance.speaker ? (
+                              {!isNewSpeaker ? null : editingSpeaker === utterance.speaker ? (
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="text"
@@ -459,7 +466,8 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
                             {utterance.text}
                           </p>
                         </div>
-                      ))
+                        )
+                      })
                     ) : (
                       <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                         <p>No structured transcript data available.</p>

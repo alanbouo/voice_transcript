@@ -22,7 +22,7 @@ import threading
 from dotenv import load_dotenv
 
 from utils.convert import convert_to_mp3
-from utils.transcript_format import enrich_utterances, render_transcript_text
+from utils.transcript_format import enrich_utterances, render_transcript_text, segment_utterances
 from scripts.transcribe import transcribe_audio
 from scripts.export import save_transcript_json, save_transcript_txt
 from api import webhooks
@@ -627,10 +627,20 @@ async def transcribe_guest(
         # Extract transcript text and timestamped utterances
         utterances = []
         if hasattr(job, 'utterances') and job.utterances:
-            utterances = enrich_utterances([
-                {"speaker": utt.speaker, "text": utt.text, "start": utt.start, "end": utt.end}
+            utterances = enrich_utterances(segment_utterances([
+                {
+                    "speaker": utt.speaker,
+                    "text": utt.text,
+                    "start": utt.start,
+                    "end": utt.end,
+                    # Word timings let a monologue be split into segments
+                    "words": [
+                        {"text": w.text, "start": w.start, "end": w.end}
+                        for w in (getattr(utt, "words", None) or [])
+                    ],
+                }
                 for utt in job.utterances
-            ])
+            ]))
             transcript_text = "\n".join([f"{utt.speaker}: {utt.text}" for utt in job.utterances])
         else:
             transcript_text = job.text if hasattr(job, 'text') else ""
@@ -862,7 +872,9 @@ def get_transcript(
                 if utterances:
                     mappings = {m.original_label: m.display_name for m in speaker_mappings}
                     return PlainTextResponse(
-                        content=render_transcript_text(utterances, mappings, include_timestamps=True)
+                        content=render_transcript_text(
+                            segment_utterances(utterances), mappings, include_timestamps=True
+                        )
                     )
             except json.JSONDecodeError:
                 pass  # Fall through to the plain text version below
@@ -1020,8 +1032,11 @@ async def get_transcript_utterances(
         try:
             data = json.loads(transcript.json_content)
             if 'utterances' in data and data['utterances']:
-                # Adds speaker_name and formatted timestamps to each utterance
-                utterances = enrich_utterances(data['utterances'], mappings)
+                # Split monologues into regular segments, then add speaker
+                # names and formatted timestamps to each one
+                utterances = enrich_utterances(
+                    segment_utterances(data['utterances']), mappings
+                )
         except json.JSONDecodeError:
             pass
 
