@@ -105,15 +105,21 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 1. **Create new Application** for frontend
 2. **Build Settings:**
-   - **Build Pack**: Static
-   - **Build Command**: `cd frontend && npm install && npm run build`
-   - **Publish Directory**: `frontend/dist`
+   - **Build Pack**: `Dockerfile`
+   - **Dockerfile Location**: `frontend/Dockerfile`
+   - **Base Directory**: `frontend`
    - **Port**: `80`
 
 3. **Environment Variables:**
    ```bash
    VITE_API_URL=https://api.yourdomain.com
    ```
+
+> **Do not use the `Static` build pack here.** `frontend/Dockerfile` builds the
+> app and serves it through `frontend/nginx.conf`, which sends
+> `Cache-Control: no-cache` for `index.html`. Without it, browsers keep a cached
+> `index.html` pointing at the previous build's content-hashed JS bundle, and a
+> redeploy appears to change nothing at all.
 
 ### Option 2: Deploy on Netlify/Vercel (Easier for frontend)
 
