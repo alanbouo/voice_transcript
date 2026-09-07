@@ -17,6 +17,26 @@ const formatWordCount = (count) => {
   return `${count} words`
 }
 
+// Extract short excerpts around each match of `query` inside `content`
+const getMatchSnippets = (content, query, maxSnippets = 3, contextChars = 40) => {
+  if (!content || !query) return []
+  const lowerContent = content.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const snippets = []
+  let index = lowerContent.indexOf(lowerQuery)
+  while (index !== -1 && snippets.length < maxSnippets) {
+    const start = Math.max(0, index - contextChars)
+    const end = Math.min(content.length, index + query.length + contextChars)
+    snippets.push({
+      before: (start > 0 ? '…' : '') + content.slice(start, index),
+      match: content.slice(index, index + query.length),
+      after: content.slice(index + query.length, end) + (end < content.length ? '…' : '')
+    })
+    index = lowerContent.indexOf(lowerQuery, index + query.length)
+  }
+  return snippets
+}
+
 function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRenamed }) {
   const [selectedTranscript, setSelectedTranscript] = useState(null)
   const [transcriptData, setTranscriptData] = useState({ utterances: [], speakers: {} })
@@ -312,8 +332,39 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
               </div>
             </div>
 
-            {/* Preview on hover */}
-            {hoveredTranscript === transcript.id && transcript.preview && (
+            {/* Matched excerpts when searching by content */}
+            {searchQuery.trim() && (() => {
+              const snippets = getMatchSnippets(transcript.content, searchQuery.trim())
+              const matchedSpeakers = (transcript.speakers || []).filter(s =>
+                s.toLowerCase().includes(searchQuery.trim().toLowerCase())
+              )
+              if (snippets.length === 0 && matchedSpeakers.length === 0) return null
+              return (
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
+                  {matchedSpeakers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {matchedSpeakers.map((s, i) => (
+                        <span key={i} className="px-2 py-0.5 text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {snippets.map((snippet, i) => (
+                    <p key={i} className="text-sm text-gray-600 dark:text-gray-400">
+                      {snippet.before}
+                      <mark className="bg-yellow-200 dark:bg-yellow-500/40 text-gray-900 dark:text-white rounded px-0.5">
+                        {snippet.match}
+                      </mark>
+                      {snippet.after}
+                    </p>
+                  ))}
+                </div>
+              )
+            })()}
+
+            {/* Preview on hover (no active search) */}
+            {!searchQuery.trim() && hoveredTranscript === transcript.id && transcript.preview && (
               <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                 {transcript.preview}
               </div>
