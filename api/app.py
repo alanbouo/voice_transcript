@@ -744,7 +744,9 @@ async def list_transcripts(
             "filename": t.filename,
             "created_at": t.created_at.isoformat(),
             "word_count": len(t.text_content.split()) if t.text_content else 0,
-            "preview": t.text_content[:150] + "..." if t.text_content and len(t.text_content) > 150 else (t.text_content or "")
+            "preview": t.text_content[:150] + "..." if t.text_content and len(t.text_content) > 150 else (t.text_content or ""),
+            "content": t.text_content or "",
+            "speakers": [m.display_name for m in t.speaker_mappings]
         }
         for t in transcripts
     ]

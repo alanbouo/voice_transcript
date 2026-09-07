@@ -32,10 +32,15 @@ function TranscriptViewer({ transcripts, onTranscriptDeleted, onTranscriptRename
   const [copied, setCopied] = useState(false)
   const [showTimestamps, setShowTimestamps] = useState(true)
 
-  // Filter transcripts based on search
-  const filteredTranscripts = transcripts.filter(t =>
-    t.filename.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filter transcripts based on search (title, content, and speakers)
+  const filteredTranscripts = transcripts.filter(t => {
+    const query = searchQuery.toLowerCase()
+    if (!query) return true
+    if (t.filename.toLowerCase().includes(query)) return true
+    if (t.content && t.content.toLowerCase().includes(query)) return true
+    if (t.speakers && t.speakers.some(s => s.toLowerCase().includes(query))) return true
+    return false
+  })
 
   const handleViewTranscript = async (transcript) => {
     setLoading(true)
