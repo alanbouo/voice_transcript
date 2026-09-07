@@ -1,8 +1,8 @@
 FROM python:3.11-slim
 
-# Install ffmpeg
+# Install ffmpeg (no recommended packages: avoids pulling in systemd/X11/GTK/SDL2)
 RUN apt-get update && \
-    apt-get install -y ffmpeg && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
