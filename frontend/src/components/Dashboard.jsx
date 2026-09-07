@@ -89,6 +89,8 @@ function Dashboard({ setIsAuthenticated }) {
         timestamp: t.created_at,
         word_count: t.word_count,
         preview: t.preview,
+        content: t.content,
+        speakers: t.speakers,
         textFile: `/transcripts/${t.transcript_id}?format=txt`,
         jsonFile: `/transcripts/${t.transcript_id}?format=json`
       }))
