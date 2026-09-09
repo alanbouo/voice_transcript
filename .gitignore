@@ -25,6 +25,7 @@ api/__pycache__/*
 frontend/node_modules/
 frontend/dist/
 frontend/build/
+frontend/public/sitemap.xml
 *.log
 
 # IDE

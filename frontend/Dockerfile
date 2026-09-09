@@ -15,6 +15,10 @@ COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
+# Accept build argument for the public site URL (used to generate sitemap.xml)
+ARG VITE_SITE_URL
+ENV VITE_SITE_URL=$VITE_SITE_URL
+
 # Build the application
 RUN npm run build
 
