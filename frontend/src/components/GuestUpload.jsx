@@ -36,11 +36,11 @@ function GuestUpload({ onTranscriptComplete }) {
   }
 
   const handleFileSelect = (selectedFile) => {
-    const validTypes = ['audio/m4a', 'audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/x-m4a']
+    const validTypes = ['audio/m4a', 'audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/mp4', 'video/mp4', 'video/quicktime', 'video/x-m4v', 'audio/webm', 'video/webm']
 
-    if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(m4a|mp3|wav)$/i)) {
+    if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(m4a|mp3|wav|mp4|mov|m4v|webm)$/i)) {
       setStatus('error')
-      setMessage('Invalid file type. Please upload an audio file (.m4a, .mp3, .wav)')
+      setMessage('Invalid file type. Please upload an audio or video file (.m4a, .mp3, .wav, .mp4, .mov, .m4v, .webm)')
       return
     }
 
@@ -149,7 +149,7 @@ function GuestUpload({ onTranscriptComplete }) {
               ref={fileInputRef}
               type="file"
               onChange={handleChange}
-              accept=".m4a,.mp3,.wav,audio/*"
+              accept=".m4a,.mp3,.wav,.mp4,.mov,.m4v,.webm,audio/*"
               className="hidden"
             />
             <span className="flex-1 text-gray-400">
@@ -191,7 +191,7 @@ function GuestUpload({ onTranscriptComplete }) {
       {/* Supported formats hint */}
       {!file && (
         <p className="text-xs text-gray-500 mt-2">
-          Supported: M4A, MP3, WAV (Max 5MB in guest mode)
+          Supported: M4A, MP3, WAV, MP4, MOV, M4V, WEBM (Max 5MB in guest mode)
         </p>
       )}
 
