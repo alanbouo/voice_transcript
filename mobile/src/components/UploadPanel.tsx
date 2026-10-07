@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { PickedAudio, Quality } from '../lib/api'
 import { useTheme } from '../lib/theme'
+import { AudioPreview } from './AudioPreview'
 import { Button, Card, ErrorText, Muted } from './ui'
 
 const QUALITIES: { value: Quality; label: string }[] = [
@@ -110,10 +111,8 @@ export function UploadPanel({ defaultQuality = 'medium', onSubmit }: Props) {
 
       {audio && (
         <Card>
-          <Text style={{ color: t.text, fontWeight: '600' }} numberOfLines={1}>
-            {audio.name}
-          </Text>
-          <Muted style={{ marginTop: 4 }}>Prêt à être transcrit</Muted>
+          <AudioPreview key={audio.uri} uri={audio.uri} name={audio.name} />
+          <Muted style={{ marginTop: 10 }}>Écoutez avant de transcrire, ou réenregistrez.</Muted>
         </Card>
       )}
 
