@@ -1,7 +1,9 @@
 import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useRouteSeo } from '../utils/seo'
 
 function Legal() {
+  useRouteSeo('/privacy')
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       {/* Header */}
@@ -11,7 +13,7 @@ function Legal() {
             <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <img src="/logo.png" alt="MemoMind" className="w-9 h-9" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900">MemoMind</h1>
+                <p className="text-lg font-bold text-gray-900">MemoMind</p>
                 <p className="text-xs text-gray-500">Chat with your voice memos</p>
               </div>
             </Link>

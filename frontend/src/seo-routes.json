@@ -1,0 +1,37 @@
+{
+  "/": {
+    "title": "MemoMind – Chat with Your Voice Memos",
+    "description": "Turn your recordings into searchable transcripts and have AI conversations about what was said. AI-powered transcription with speaker detection.",
+    "h1": "Chat with Your Voice Memos",
+    "lead": "Turn your recordings into searchable transcripts and have AI conversations about what was said.",
+    "noindex": false
+  },
+  "/login": {
+    "title": "Log in to MemoMind – Chat with Your Voice Memos",
+    "description": "Turn your recordings into searchable transcripts and have AI conversations about what was said. AI-powered transcription with speaker detection.",
+    "h1": "Chat with Your Voice Memos",
+    "lead": "Turn your recordings into searchable transcripts and have AI conversations about what was said.",
+    "noindex": false
+  },
+  "/privacy": {
+    "title": "Privacy Policy – MemoMind",
+    "description": "How MemoMind handles your audio files, transcripts and personal data.",
+    "h1": "Privacy Policy",
+    "lead": "",
+    "noindex": false
+  },
+  "/forgot-password": {
+    "title": "Forgot your password – MemoMind",
+    "description": "Reset your MemoMind password.",
+    "h1": "Forgot your password?",
+    "lead": "",
+    "noindex": true
+  },
+  "/reset-password": {
+    "title": "Reset your password – MemoMind",
+    "description": "Choose a new MemoMind password.",
+    "h1": "Reset your password",
+    "lead": "",
+    "noindex": true
+  }
+}

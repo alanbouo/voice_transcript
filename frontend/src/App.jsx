@@ -7,6 +7,7 @@ import Legal from './components/Legal'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
 import { getToken } from './utils/auth'
+import NotFound from './components/NotFound'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -62,6 +63,7 @@ function App() {
         <Route path="/privacy" element={<Legal />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )

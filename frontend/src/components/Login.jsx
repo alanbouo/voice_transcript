@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Lock, Mail, ArrowRight, Zap, Clock, MessageSquare, Shield } from 'lucide-react'
 import { login, register } from '../services/api'
 import { setToken, setRefreshToken } from '../utils/auth'
+import { useRouteSeo } from '../utils/seo'
 
 function Login({ setIsAuthenticated, setGuestMode }) {
+  useRouteSeo('/login')
   const navigate = useNavigate()
   const [view, setView] = useState('home') // 'home' | 'login' | 'signup'
   const [email, setEmail] = useState('')
@@ -86,7 +88,7 @@ function Login({ setIsAuthenticated, setGuestMode }) {
               <div className="flex items-center gap-3">
                 <img src="/logo.png" alt="MemoMind" className="w-9 h-9" />
                 <div>
-                  <h1 className="text-lg font-bold text-gray-900">MemoMind</h1>
+                  <p className="text-lg font-bold text-gray-900">MemoMind</p>
                   <p className="text-xs text-gray-500">Chat with your voice memos</p>
                 </div>
               </div>
@@ -114,9 +116,9 @@ function Login({ setIsAuthenticated, setGuestMode }) {
         <main className="flex-1 flex items-center justify-center px-4 py-12">
           <div className="max-w-2xl w-full text-center">
             {/* Hero Text */}
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Chat with Your Voice Memos
-            </h2>
+            </h1>
             <p className="text-lg text-gray-600 mb-8">
               Turn your recordings into searchable transcripts and have AI conversations about what was said.
             </p>

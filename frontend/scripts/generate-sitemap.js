@@ -4,9 +4,10 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const siteUrl = (process.env.VITE_SITE_URL || 'https://app.yourdomain.com').replace(/\/$/, '')
+const siteUrl = (process.env.VITE_SITE_URL || 'https://memomind.space').replace(/\/$/, '')
 
-const publicRoutes = ['/login', '/privacy', '/forgot-password', '/reset-password']
+// Pages à indexer. Les pages de mot de passe sont en noindex : elles n'ont pas leur place ici.
+const publicRoutes = ['/', '/login', '/privacy']
 
 const urls = publicRoutes
   .map((route) => `  <url>\n    <loc>${siteUrl}${route}</loc>\n  </url>`)

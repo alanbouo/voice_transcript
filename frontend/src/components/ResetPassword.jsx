@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { Lock, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { verifyResetToken, resetPassword } from '../services/api'
+import { useRouteSeo } from '../utils/seo'
 
 function ResetPassword() {
+  useRouteSeo('/reset-password')
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token')
